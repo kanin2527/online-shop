@@ -36,7 +36,7 @@
             scene.add(light);
 
             const loader = new THREE.GLTFLoader();
-            // *** เปลี่ยนชื่อไฟล์ 'your_hat.glb' ให้ตรงกับที่คุณอัปโหลดขึ้น GitHub ***
+            // ใช้ชื่อไฟล์ cap.glb ตามที่คุณระบุ
             loader.load('cap.glb', (gltf) => {
                 hatModel = gltf.scene;
                 scene.add(hatModel);
@@ -66,15 +66,18 @@
                 if (results.faceLandmarks && results.faceLandmarks.length > 0 && hatModel) {
                     const landmarks = results.faceLandmarks[0];
                     
-                    // จุดที่ 10 คือพิกัดบนหน้าผาก/ส่วนบนของหัว
                     const topHead = landmarks[10];
 
-                    // แปลงพิกัด MediaPipe (0-1) เป็นพิกัด Three.js
+                    // --- จุดที่แก้ไขตัวเลขพิกัด ---
                     hatModel.position.x = -(topHead.x - 0.5) * 5; 
-                    hatModel.position.y = -(topHead.y - 0.5) * 5 + 0.5; // +0.5 เพื่อยกหมวกขึ้นเหนือหัวเล็กน้อย
-                    hatModel.position.z = -topHead.z * 10;
                     
-                    // ปรับขนาดหมวกอัตโนมัติตามระยะห่างของใบหน้า
+                    // ปรับตำแหน่งความสูง (แกน Y): เพิ่มจาก +0.5 เป็น +1.2 เพื่อยกหมวกขึ้น
+                    hatModel.position.y = -(topHead.y - 0.5) * 5 + 1.2; 
+                    
+                    // ปรับตำแหน่งความลึก (แกน Z): เปลี่ยนจาก *10 เป็น *2 เพื่อให้หมวกเข้ามาใกล้หน้า
+                    hatModel.position.z = -topHead.z * 2; 
+                    // ---------------------------
+
                     const faceSize = Math.abs(landmarks[234].x - landmarks[454].x); 
                     hatModel.scale.set(faceSize * 5, faceSize * 5, faceSize * 5);
                 }
