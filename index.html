@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AR Hat Try-on - ar-assets</title>
+    <style>
+        body { margin: 0; background-color: #000; overflow: hidden; }
+        #video { transform: scaleX(-1); width: 100vw; height: 100vh; object-fit: cover; }
+        canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="output_canvas"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script type="module">
+        import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
+
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('output_canvas');
+        let faceLandmarker;
+        let scene, camera, renderer, hatModel;
+
+        // 1. ตั้งค่า Three.js สำหรับแสดงผล 3D
+        function initThree() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            const light = new THREE.AmbientLight(0xffffff, 1.5);
+            scene.add(light);
+
+            const loader = new THREE.GLTFLoader();
+            // *** เปลี่ยนชื่อไฟล์ 'your_hat.glb' ให้ตรงกับที่คุณอัปโหลดขึ้น GitHub ***
+            loader.load('cap.glb', (gltf) => {
+                hatModel = gltf.scene;
+                scene.add(hatModel);
+            });
+        }
+
+        // 2. ตั้งค่า MediaPipe และเปิดกล้อง
+        async function initAR() {
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm");
+            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+                    delegate: "GPU"
+                },
+                runningMode: "VIDEO"
+            });
+
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            video.addEventListener('loadeddata', predict);
+        }
+
+        // 3. วนลูปคำนวณพิกัดใบหน้าและขยับหมวก
+        async function predict() {
+            if (faceLandmarker) {
+                const results = faceLandmarker.detectForVideo(video, performance.now());
+                if (results.faceLandmarks && results.faceLandmarks.length > 0 && hatModel) {
+                    const landmarks = results.faceLandmarks[0];
+                    
+                    // จุดที่ 10 คือพิกัดบนหน้าผาก/ส่วนบนของหัว
+                    const topHead = landmarks[10];
+
+                    // แปลงพิกัด MediaPipe (0-1) เป็นพิกัด Three.js
+                    hatModel.position.x = -(topHead.x - 0.5) * 5; 
+                    hatModel.position.y = -(topHead.y - 0.5) * 5 + 0.5; // +0.5 เพื่อยกหมวกขึ้นเหนือหัวเล็กน้อย
+                    hatModel.position.z = -topHead.z * 10;
+                    
+                    // ปรับขนาดหมวกอัตโนมัติตามระยะห่างของใบหน้า
+                    const faceSize = Math.abs(landmarks[234].x - landmarks[454].x); 
+                    hatModel.scale.set(faceSize * 5, faceSize * 5, faceSize * 5);
+                }
+            }
+            renderer.render(scene, camera);
+            requestAnimationFrame(predict);
+        }
+
+        initThree();
+        initAR();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
