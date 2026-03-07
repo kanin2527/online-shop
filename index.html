@@ -3,185 +3,269 @@
 <head>
     <meta charset="utf-8">
     <title>AR Hat Try-on</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background-color: #000; overflow: hidden; }
-        #video { transform: scaleX(-1); width: 100vw; height: 100vh; object-fit: cover; }
-        canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; touch-action: none; }
 
-        /* ปุ่มปรับตำแหน่ง */
+        #video {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        #output_canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
         #controls {
-            position: fixed; bottom: 20px; left: 50%;
-            transform: translateX(-50%);
-            display: flex; gap: 10px; z-index: 99;
+            position: fixed; bottom: max(20px, env(safe-area-inset-bottom));
+            left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px; z-index: 99;
+            flex-wrap: wrap; justify-content: center;
+            padding: 0 10px;
         }
         #controls button {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.4);
-            color: white; padding: 8px 16px;
-            border-radius: 20px; cursor: pointer;
-            font-size: 14px; backdrop-filter: blur(8px);
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.35);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 15px;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            cursor: pointer;
+            user-select: none;
         }
+        #controls button:active { background: rgba(255,255,255,0.2); }
+
         #info {
-            position: fixed; top: 10px; left: 10px;
-            color: white; font-size: 12px; z-index: 99;
+            position: fixed; top: max(10px, env(safe-area-inset-top));
+            left: 10px; color: white; font-size: 12px; z-index: 99;
             background: rgba(0,0,0,0.5); padding: 6px 10px;
             border-radius: 6px; font-family: monospace;
         }
+
+        #loading {
+            position: fixed; inset: 0;
+            background: #000;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: white; font-size: 16px; gap: 16px;
+            z-index: 200; font-family: sans-serif;
+        }
+        .spinner {
+            width: 44px; height: 44px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="output_canvas"></canvas>
 
-    <div id="info">Y offset: <span id="yval">1.2</span> | Scale: <span id="sval">5</span></div>
-    <div id="controls">
-        <button onclick="adjust('y', 0.1)">⬆ ขึ้น</button>
-        <button onclick="adjust('y', -0.1)">⬇ ลง</button>
-        <button onclick="adjust('s', 0.5)">🔼 ใหญ่</button>
-        <button onclick="adjust('s', -0.5)">🔽 เล็ก</button>
-    </div>
+<div id="loading">
+    <div class="spinner"></div>
+    <div id="load-text">กำลังโหลด...</div>
+</div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<video id="video" autoplay playsinline muted></video>
+<canvas id="output_canvas"></canvas>
 
-    <script type="module">
-        import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+<div id="info">Y: <span id="yval">0.3</span> | S: <span id="sval">4.5</span></div>
 
-        const video  = document.getElementById('video');
-        const canvas = document.getElementById('output_canvas');
-        let faceLandmarker, scene, camera, renderer, hatModel;
+<div id="controls">
+    <button ontouchstart="startAdjust('y',0.05)" ontouchend="stopAdjust()" onmousedown="startAdjust('y',0.05)" onmouseup="stopAdjust()">⬆ ขึ้น</button>
+    <button ontouchstart="startAdjust('y',-0.05)" ontouchend="stopAdjust()" onmousedown="startAdjust('y',-0.05)" onmouseup="stopAdjust()">⬇ ลง</button>
+    <button ontouchstart="startAdjust('s',0.2)" ontouchend="stopAdjust()" onmousedown="startAdjust('s',0.2)" onmouseup="stopAdjust()">🔼 ใหญ่</button>
+    <button ontouchstart="startAdjust('s',-0.2)" ontouchend="stopAdjust()" onmousedown="startAdjust('s',-0.2)" onmouseup="stopAdjust()">🔽 เล็ก</button>
+</div>
 
-        // ── ค่าปรับได้ ──
-        let hatYOffset = 1.2;   // เลื่อนหมวกขึ้น/ลง  (บวก = ขึ้น)
-        let hatScale   = 5.0;   // ขนาดหมวก
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
-        window.adjust = (type, val) => {
-            if (type === 'y') { hatYOffset += val; document.getElementById('yval').textContent = hatYOffset.toFixed(1); }
-            if (type === 's') { hatScale   += val; document.getElementById('sval').textContent = hatScale.toFixed(1); }
-        };
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
-        // ── Three.js ──
-        function initThree() {
-            scene    = new THREE.Scene();
-            camera   = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setClearColor(0x000000, 0);
+const video   = document.getElementById('video');
+const canvas  = document.getElementById('output_canvas');
+const loadDiv = document.getElementById('loading');
+const loadTxt = document.getElementById('load-text');
 
-            scene.add(new THREE.AmbientLight(0xffffff, 2));
-            const dir = new THREE.DirectionalLight(0xffffff, 1.5);
-            dir.position.set(0, 5, 5);
-            scene.add(dir);
+// ── ค่าเริ่มต้น (ปรับได้ด้วยปุ่ม) ──────────────────────────────
+let hatY = 0.3;    // offset ขึ้น/ลง  (ลดจาก 1.2 → 0.3 ให้ชิดหัว)
+let hatS = 4.5;    // scale หมวก
 
-            const loader = new THREE.GLTFLoader();
-            loader.load('cap.glb', (gltf) => {
-                hatModel = gltf.scene;
-                hatModel.visible = false;
-                scene.add(hatModel);
-            });
-        }
+// ── ปุ่ม hold-to-adjust ─────────────────────────────────────────
+let adjustTimer = null;
+window.startAdjust = (type, val) => {
+    applyAdjust(type, val);
+    adjustTimer = setInterval(() => applyAdjust(type, val), 120);
+};
+window.stopAdjust = () => { clearInterval(adjustTimer); adjustTimer = null; };
+function applyAdjust(type, val) {
+    if (type === 'y') { hatY = +((hatY + val).toFixed(2)); document.getElementById('yval').textContent = hatY; }
+    if (type === 's') { hatS = +((hatS + val).toFixed(2)); document.getElementById('sval').textContent = hatS; }
+}
 
-        // ── MediaPipe ──
-        async function initAR() {
-            const vision = await FilesetResolver.forVisionTasks(
-                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+// ── Three.js ─────────────────────────────────────────────────────
+let scene, camera, renderer, hatModel;
+
+function initThree() {
+    scene    = new THREE.Scene();
+    camera   = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 2));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+    dir.position.set(0, 5, 5);
+    scene.add(dir);
+
+    const loader = new THREE.GLTFLoader();
+    loadTxt.textContent = 'กำลังโหลด cap.glb...';
+    loader.load('cap.glb',
+        (gltf) => {
+            hatModel = gltf.scene;
+            hatModel.visible = false;
+            scene.add(hatModel);
+            loadTxt.textContent = 'กำลังโหลด AI model...';
+        },
+        undefined,
+        () => { loadTxt.textContent = '⚠ โหลด cap.glb ไม่ได้'; }
+    );
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+}
+
+// ── MediaPipe ────────────────────────────────────────────────────
+let faceLandmarker;
+
+async function initAR() {
+    const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+            delegate: "GPU"
+        },
+        outputFacialTransformationMatrixes: true,
+        runningMode: "VIDEO",
+        numFaces: 1
+    });
+
+    // มือถือ: ใช้ environment (กล้องหลัง) ไม่ได้ → บังคับ user (กล้องหน้า)
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: 'user',
+            width:  { ideal: 1280 },
+            height: { ideal: 720 }
+        },
+        audio: false
+    });
+    video.srcObject = stream;
+    await new Promise(res => video.addEventListener('loadeddata', res, { once: true }));
+
+    loadDiv.style.display = 'none';
+    predict();
+}
+
+// ── Smoothing state ───────────────────────────────────────────────
+const sPos  = new THREE.Vector3();
+const sQuat = new THREE.Quaternion();
+const sScl  = new THREE.Vector3(1,1,1);
+let   sInit = false;
+
+// ── Predict loop ─────────────────────────────────────────────────
+let lastTime = -1;
+
+function predict() {
+    requestAnimationFrame(predict);
+
+    if (!faceLandmarker || video.readyState < 2) {
+        renderer?.render(scene, camera); return;
+    }
+    if (video.currentTime === lastTime) {
+        renderer.render(scene, camera); return;
+    }
+    lastTime = video.currentTime;
+
+    const results = faceLandmarker.detectForVideo(video, performance.now());
+
+    if (results.faceLandmarks?.length > 0 && hatModel) {
+        const lm = results.faceLandmarks[0];
+
+        // landmark[10]  = หน้าผากกลาง (ใกล้จุดสูงสุดของหน้า)
+        // landmark[234] = กกหูซ้าย
+        // landmark[454] = กกหูขวา
+        const top  = lm[10];
+        const earL = lm[234];
+        const earR = lm[454];
+
+        // ความกว้างหน้า → ใช้ scale หมวก
+        const faceW = Math.abs(earL.x - earR.x);
+
+        // แปลงพิกัด normalized → Three.js world space
+        // *5 เพราะ PerspectiveCamera FOV75 ที่ z=0 ครอบคลุมประมาณ ±2.5 unit
+        const wx = -(top.x - 0.5) * 5;
+        const wy = -(top.y - 0.5) * 5 + hatY;
+        const wz =  -top.z * 2;
+        const s  = faceW * hatS;
+
+        // rotation จาก facial matrix
+        let tQuat = sQuat.clone();
+        if (results.facialTransformationMatrixes?.length > 0) {
+            const mat4 = new THREE.Matrix4().fromArray(
+                results.facialTransformationMatrixes[0].data
             );
-            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-                baseOptions: {
-                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-                    delegate: "GPU"
-                },
-                outputFacialTransformationMatrixes: true,
-                runningMode: "VIDEO",
-                numFaces: 1
-            });
-
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-            video.srcObject = stream;
-            video.addEventListener('loadeddata', predict);
+            const e = new THREE.Euler().setFromRotationMatrix(mat4, 'XYZ');
+            tQuat = new THREE.Quaternion().setFromEuler(
+                new THREE.Euler(e.x, -e.y, -e.z, 'XYZ')
+            );
         }
 
-        // ── Smoothing ──
-        const smoothPos  = new THREE.Vector3();
-        const smoothQuat = new THREE.Quaternion();
-        const smoothScl  = new THREE.Vector3(1,1,1);
-        let   smoothInit = false;
+        const tPos = new THREE.Vector3(wx, wy, wz);
+        const tScl = new THREE.Vector3(s, s, s);
 
-        // ── Main loop ──
-        let lastTime = -1;
-        function predict() {
-            requestAnimationFrame(predict);
-            if (!faceLandmarker || video.readyState < 2) { renderer.render(scene, camera); return; }
-            if (video.currentTime === lastTime)          { renderer.render(scene, camera); return; }
-            lastTime = video.currentTime;
-
-            const results = faceLandmarker.detectForVideo(video, performance.now());
-
-            if (results.faceLandmarks?.length > 0 && hatModel) {
-                const lm = results.faceLandmarks[0];
-
-                // จุดหลัก: 10 = หน้าผาก, 234/454 = กกหู
-                const topHead = lm[10];
-                const earL    = lm[234];
-                const earR    = lm[454];
-
-                // ความกว้างหน้า (normalized 0-1)
-                const faceW = Math.abs(earL.x - earR.x);
-
-                // แปลงพิกัด: landmark (0-1) → Three.js world
-                // video ถูก mirror ด้วย CSS scaleX(-1) ต้อง flip X
-                const wx = -(topHead.x - 0.5) * 5;          // flip + scale
-                const wy = -(topHead.y - 0.5) * 5 + hatYOffset;
-                const wz = -topHead.z * 2;
-
-                const s = faceW * hatScale;
-
-                // Target
-                const tPos  = new THREE.Vector3(wx, wy, wz);
-                const tScl  = new THREE.Vector3(s, s, s);
-                let   tQuat = smoothQuat.clone();
-
-                if (results.facialTransformationMatrixes?.length > 0) {
-                    const mat4 = new THREE.Matrix4().fromArray(
-                        results.facialTransformationMatrixes[0].data
-                    );
-                    const e = new THREE.Euler().setFromRotationMatrix(mat4, 'XYZ');
-                    tQuat = new THREE.Quaternion().setFromEuler(
-                        new THREE.Euler(e.x, -e.y, -e.z, 'XYZ')
-                    );
-                }
-
-                // Smooth (lerp/slerp)
-                if (!smoothInit) {
-                    smoothPos.copy(tPos); smoothQuat.copy(tQuat); smoothScl.copy(tScl);
-                    smoothInit = true;
-                } else {
-                    smoothPos.lerp(tPos, 0.3);
-                    smoothQuat.slerp(tQuat, 0.15);
-                    smoothScl.lerp(tScl, 0.25);
-                }
-
-                hatModel.position.copy(smoothPos);
-                hatModel.quaternion.copy(smoothQuat);
-                hatModel.scale.copy(smoothScl);
-                hatModel.visible = true;
-
-            } else if (hatModel) {
-                hatModel.visible = false;
-                smoothInit = false;
-            }
-
-            renderer.render(scene, camera);
+        if (!sInit) {
+            sPos.copy(tPos); sQuat.copy(tQuat); sScl.copy(tScl);
+            sInit = true;
+        } else {
+            sPos.lerp(tPos, 0.3);
+            sQuat.slerp(tQuat, 0.15);
+            sScl.lerp(tScl, 0.25);
         }
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        hatModel.position.copy(sPos);
+        hatModel.quaternion.copy(sQuat);
+        hatModel.scale.copy(sScl);
+        hatModel.visible = true;
 
-        initThree();
-        initAR();
-    </script>
+    } else if (hatModel) {
+        hatModel.visible = false;
+        sInit = false;
+    }
+
+    renderer.render(scene, camera);
+}
+
+// ── Boot ─────────────────────────────────────────────────────────
+initThree();
+initAR().catch(err => {
+    loadTxt.textContent = '❌ ' + err.message;
+    console.error(err);
+});
+</script>
 </body>
 </html>
