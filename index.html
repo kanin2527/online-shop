@@ -138,6 +138,7 @@ function initThree() {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x000000, 0);
+    onResize(); // ← เรียก resize หลัง renderer พร้อมแล้ว
 
     // แสง
     scene.add(new THREE.AmbientLight(0xffffff, 2));
@@ -166,9 +167,9 @@ function initThree() {
 
 // ── RESIZE ──────────────────────────────────────────────────────
 function onResize() {
+    if (!renderer || !camera) return;  // guard: ยังไม่ init ก็ข้าม
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h);
-    // Orthographic: อัพเดต aspect
     const aspect = w / h;
     camera.left   = -aspect;
     camera.right  =  aspect;
@@ -177,7 +178,6 @@ function onResize() {
     camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', onResize);
-onResize();
 
 // ── MEDIAPIPE ───────────────────────────────────────────────────
 let faceLandmarker;
