@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>AR Hat Try-on (Nose Bridge Focus)</title>
+    <title>AR Hat Try-on - cap.glb</title>
     <style>
         body { margin: 0; background-color: #000; overflow: hidden; }
         #video { transform: scaleX(-1); width: 100vw; height: 100vh; object-fit: cover; }
@@ -24,27 +24,25 @@
         const canvas = document.getElementById('output_canvas');
         let faceLandmarker, scene, camera, renderer, hatModel;
 
-        // 1. ตั้งค่าฉาก 3D
         function initThree() {
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
 
-            scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-            const light = new THREE.DirectionalLight(0xffffff, 0.5);
-            light.position.set(0, 10, 5);
-            scene.add(light);
-
+            scene.add(new THREE.AmbientLight(0xffffff, 2.0)); // เพิ่มความสว่างให้หมวก
+            
             const loader = new THREE.GLTFLoader();
-            // *** แก้ชื่อไฟล์ .glb ให้ตรงกับที่คุณอัพโหลดขึ้น GitHub ***
+            // ใช้ชื่อไฟล์ cap.glb ตามที่คุณระบุ
             loader.load('cap.glb', (gltf) => {
                 hatModel = gltf.scene;
                 scene.add(hatModel);
+                console.log("หมวก cap.glb โหลดสำเร็จ!");
+            }, undefined, (error) => {
+                console.error("โหลดหมวกไม่ได้: ", error);
             });
         }
 
-        // 2. ตั้งค่าการตรวจจับใบหน้า
         async function initAR() {
             const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm");
             faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
@@ -55,38 +53,33 @@
                 runningMode: "VIDEO"
             });
 
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             video.srcObject = stream;
             video.addEventListener('loadeddata', predict);
         }
 
-        // 3. ฟังก์ชันคำนวณตำแหน่งหมวก
         async function predict() {
             if (faceLandmarker && video.readyState >= 2) {
                 const results = faceLandmarker.detectForVideo(video, performance.now());
                 if (results.faceLandmarks && results.faceLandmarks.length > 0 && hatModel) {
                     const landmarks = results.faceLandmarks[0];
                     
-                    // ใช้จุดที่ 6 (ดั้งจมูก) และ 10 (ส่วนบนหน้าผาก)
-                    const noseBridge = landmarks[6]; 
-                    const topHead = landmarks[10];
+                    const noseBridge = landmarks[6];  // ดั้งจมูก
+                    const topHead = landmarks[10];    // บนหน้าผาก
 
-                    // ปรับตำแหน่ง X, Y
+                    // ปรับตำแหน่งตามที่คุณแจ้ง: ดึงเข้าหาตัว และ ยกขึ้น
                     hatModel.position.x = -(noseBridge.x - 0.5) * 5;
-                    hatModel.position.y = -(topHead.y - 0.5) * 5 + 1.2; // ปรับเลข 0.6 เพื่อยกหมวกขึ้น/ลง
-                    
-                    // ปรับความลึก (Z) ให้สัมพันธ์กับจมูก เพื่อไม่ให้หมวกลอย
-                    hatModel.position.z = -noseBridge.z * 2; 
+                    hatModel.position.y = -(topHead.y - 0.5) * 5 + 1.2; // ยกขึ้น 20-30 ซม.
+                    hatModel.position.z = -noseBridge.z * 1.5; // ดึงเข้ามาใกล้หน้ามากขึ้น (ลดตัวคูณ)
 
-                    // คำนวณการเอียงของหัว (Rotation)
-                    const eyeLeft = landmarks[33];
-                    const eyeRight = landmarks[263];
-                    const rotationY = Math.atan2(eyeRight.z - eyeLeft.z, eyeRight.x - eyeLeft.x);
-                    hatModel.rotation.y = rotationY;
-
-                    // ปรับขนาดหมวกตามความกว้างของหน้า
+                    // ปรับขนาดหมวก
                     const faceWidth = Math.abs(landmarks[234].x - landmarks[454].x);
                     hatModel.scale.set(faceWidth * 5, faceWidth * 5, faceWidth * 5);
+
+                    // ปรับการเอียงหมวกตามหัว
+                    const eyeLeft = landmarks[33];
+                    const eyeRight = landmarks[263];
+                    hatModel.rotation.y = Math.atan2(eyeRight.z - eyeLeft.z, eyeRight.x - eyeLeft.x);
                 }
             }
             renderer.render(scene, camera);
@@ -95,12 +88,6 @@
 
         initThree();
         initAR();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
