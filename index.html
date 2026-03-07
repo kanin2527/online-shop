@@ -109,7 +109,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
 <script type="module">
-import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js";
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
 const video   = document.getElementById('video');
 const canvas  = document.getElementById('output_canvas');
@@ -184,7 +184,7 @@ let faceLandmarker;
 
 async function initFace() {
     const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
     );
     faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
@@ -217,6 +217,18 @@ function lmToWorld(lm) {
     return { x, y, z: lm.z };
 }
 
+// ── SMOOTHING STATE ──────────────────────────────────────────────
+// ค่า smoothing: 0 = นิ่งมาก (ช้า), 1 = ไม่ smooth เลย (กระตุก)
+// position/scale ใช้ lerp, rotation ใช้ slerp (quaternion)
+const SMOOTH_POS   = 0.25;   // ความเร็วตามตำแหน่ง
+const SMOOTH_ROT   = 0.15;   // ความเร็วตามการหมุน (ต่ำ = นิ่งกว่า)
+const SMOOTH_SCALE = 0.20;   // ความเร็วตาม scale
+
+const smoothPos   = new THREE.Vector3();
+const smoothQuat  = new THREE.Quaternion();
+const smoothScale = new THREE.Vector3(1, 1, 1);
+let   smoothInit  = false;   // frame แรกไม่ lerp (snap ไปเลย)
+
 // ── MAIN LOOP ────────────────────────────────────────────────────
 let lastVideoTime = -1;
 
@@ -229,6 +241,12 @@ function predict() {
     }
 
     if (video.currentTime === lastVideoTime) {
+        // ยังไม่มี frame ใหม่ → render ด้วยค่า smooth ปัจจุบัน
+        if (hatModel?.visible) {
+            hatModel.position.copy(smoothPos);
+            hatModel.quaternion.copy(smoothQuat);
+            hatModel.scale.copy(smoothScale);
+        }
         renderer.render(scene, camera);
         return;
     }
@@ -236,50 +254,61 @@ function predict() {
 
     const results = faceLandmarker.detectForVideo(video, performance.now());
 
-    if (
-        results.faceLandmarks?.length > 0 &&
-        hatModel
-    ) {
+    if (results.faceLandmarks?.length > 0 && hatModel) {
         const lms = results.faceLandmarks[0];
 
-        // จุดอ้างอิง: 
-        //  10  = กลางหน้าผาก (top of head area)
-        // 234, 454 = กกหู ซ้าย/ขวา  → วัดความกว้างหน้า
+        // จุดอ้างอิง:
+        //  10  = กลางหน้าผาก
+        // 234, 454 = กกหู ซ้าย/ขวา
         const top   = lmToWorld(lms[10]);
         const left  = lmToWorld(lms[234]);
         const right = lmToWorld(lms[454]);
 
-        // ตำแหน่ง X: กึ่งกลางระหว่างกกหูทั้งสอง
-        const cx = (left.x + right.x) / 2;
-
-        // ความกว้างหน้าใน world coords
+        const cx    = (left.x + right.x) / 2;
         const faceW = Math.abs(right.x - left.x);
+        const cy    = top.y + yOffset * faceW;
+        const s     = faceW * scaleMulti;
 
-        // ตำแหน่ง Y: ยกขึ้นตาม yOffset (เป็นสัดส่วนของความกว้างหน้า)
-        const cy = top.y + yOffset * faceW;
+        // ── Target values ──
+        const targetPos   = new THREE.Vector3(cx, cy, 0);
+        const targetScale = new THREE.Vector3(s, s, s);
 
-        hatModel.position.set(cx, cy, 0);
-
-        // Scale ตามความกว้างหน้า
-        const s = faceW * scaleMulti;
-        hatModel.scale.set(s, s, s);
-
-        // ── Rotation: ใช้ facial transformation matrix ถ้ามี ──
+        // ── Target rotation (quaternion) จาก facial matrix ──
+        let targetQuat = smoothQuat.clone(); // default: ไม่เปลี่ยน
         if (results.facialTransformationMatrixes?.length > 0) {
-            const m = results.facialTransformationMatrixes[0].data; // Float32Array 16
+            const m    = results.facialTransformationMatrixes[0].data;
             const mat4 = new THREE.Matrix4().fromArray(m);
+
+            // แก้ mirror: พลิก Y และ Z rotation
             const euler = new THREE.Euler().setFromRotationMatrix(mat4, 'XYZ');
-            // mirror X rotation เพราะกล้อง mirror
-            hatModel.rotation.set(euler.x, -euler.y, -euler.z);
+            const mirroredEuler = new THREE.Euler(euler.x, -euler.y, -euler.z, 'XYZ');
+            targetQuat = new THREE.Quaternion().setFromEuler(mirroredEuler);
         }
 
+        // ── Lerp / Slerp ──
+        if (!smoothInit) {
+            // frame แรก: snap โดยไม่ lerp
+            smoothPos.copy(targetPos);
+            smoothQuat.copy(targetQuat);
+            smoothScale.copy(targetScale);
+            smoothInit = true;
+        } else {
+            smoothPos.lerp(targetPos, SMOOTH_POS);
+            smoothQuat.slerp(targetQuat, SMOOTH_ROT);   // ← slerp แก้หมุนติ้วๆ
+            smoothScale.lerp(targetScale, SMOOTH_SCALE);
+        }
+
+        hatModel.position.copy(smoothPos);
+        hatModel.quaternion.copy(smoothQuat);
+        hatModel.scale.copy(smoothScale);
         hatModel.visible = true;
 
-        // debug
         document.getElementById('d-face').textContent  = `x:${cx.toFixed(2)} y:${cy.toFixed(2)}`;
         document.getElementById('d-scale').textContent = `${s.toFixed(3)} (×${scaleMulti.toFixed(1)})`;
+
     } else if (hatModel) {
         hatModel.visible = false;
+        smoothInit = false; // reset smooth เมื่อหน้าหายไป
     }
 
     renderer.render(scene, camera);
