@@ -2,98 +2,304 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>AR Hat Try-on - ar-assets</title>
+    <title>AR Hat Try-on</title>
     <style>
-        body { margin: 0; background-color: #000; overflow: hidden; }
-        #video { transform: scaleX(-1); width: 100vw; height: 100vh; object-fit: cover; }
-        canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; font-family: sans-serif; }
+
+        #video {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        canvas#output_canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            pointer-events: none;
+        }
+
+        #ui {
+            position: absolute;
+            bottom: 24px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 12px;
+            z-index: 10;
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 13px;
+            backdrop-filter: blur(10px);
+            transition: background 0.2s;
+            user-select: none;
+        }
+        .btn:hover { background: rgba(255,255,255,0.25); }
+        .btn:active { transform: scale(0.96); }
+
+        #debug {
+            position: absolute;
+            top: 12px; left: 12px;
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            background: rgba(0,0,0,0.4);
+            padding: 8px 12px;
+            border-radius: 8px;
+            backdrop-filter: blur(6px);
+            z-index: 10;
+            line-height: 1.8;
+        }
+
+        #loading {
+            position: absolute;
+            inset: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 16px;
+            gap: 16px;
+            z-index: 100;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <video id="video" autoplay playsinline></video>
-    <canvas id="output_canvas"></canvas>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-text">กำลังโหลด...</div>
+</div>
 
-    <script type="module">
-        import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
+<video id="video" autoplay playsinline muted></video>
+<canvas id="output_canvas"></canvas>
 
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('output_canvas');
-        let faceLandmarker;
-        let scene, camera, renderer, hatModel;
+<div id="debug">
+    <div>📍 Face: <span id="d-face">-</span></div>
+    <div>🎩 Hat Y offset: <span id="d-offset">0</span></div>
+    <div>📐 Scale: <span id="d-scale">-</span></div>
+</div>
 
-        // 1. ตั้งค่า Three.js สำหรับแสดงผล 3D
-        function initThree() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
+<div id="ui">
+    <div class="btn" onclick="adjustOffset(-0.05)">⬇ ลงหน่อย</div>
+    <div class="btn" onclick="adjustOffset(0.05)">⬆ ขึ้นหน่อย</div>
+    <div class="btn" onclick="adjustScale(-0.2)">🔽 เล็กลง</div>
+    <div class="btn" onclick="adjustScale(0.2)">🔼 ใหญ่ขึ้น</div>
+</div>
 
-            const light = new THREE.AmbientLight(0xffffff, 1.5);
-            scene.add(light);
+<!-- Three.js r128 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
-            const loader = new THREE.GLTFLoader();
-            // ใช้ชื่อไฟล์ cap.glb ตามที่คุณระบุ
-            loader.load('cap.glb', (gltf) => {
-                hatModel = gltf.scene;
-                scene.add(hatModel);
-            });
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js";
+
+const video   = document.getElementById('video');
+const canvas  = document.getElementById('output_canvas');
+const loading = document.getElementById('loading');
+const loadTxt = document.getElementById('loading-text');
+
+// ===== ปรับแต่งได้ =====
+let yOffset    = 0.6;   // เลื่อนหมวกขึ้น/ลง (หน่วย normalized 0-1)
+let scaleMulti = 1.0;   // คูณขนาดหมวก
+// ======================
+
+window.adjustOffset = (v) => { yOffset += v; document.getElementById('d-offset').textContent = yOffset.toFixed(2); };
+window.adjustScale  = (v) => { scaleMulti += v; };
+
+// ── THREE.JS SETUP ──────────────────────────────────────────────
+let scene, camera, renderer, hatModel;
+let videoWidth = 1, videoHeight = 1;
+
+function initThree() {
+    scene    = new THREE.Scene();
+    // ใช้ OrthographicCamera เพื่อ map พิกัดตรงๆ กับ video ง่ายขึ้น
+    camera   = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
+    camera.position.z = 1;
+
+    renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+
+    // แสง
+    scene.add(new THREE.AmbientLight(0xffffff, 2));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+    dir.position.set(0, 5, 5);
+    scene.add(dir);
+
+    // โหลด GLB
+    const loader = new THREE.GLTFLoader();
+    loadTxt.textContent = 'กำลังโหลด cap.glb...';
+    loader.load(
+        'cap.glb',
+        (gltf) => {
+            hatModel = gltf.scene;
+            hatModel.visible = false;
+            scene.add(hatModel);
+            loadTxt.textContent = 'โหลด GLB สำเร็จ ✓ กำลังเปิดกล้อง...';
+        },
+        undefined,
+        (err) => {
+            loadTxt.textContent = '⚠ โหลด cap.glb ไม่ได้ (ตรวจสอบไฟล์อีกครั้ง)';
+            console.error(err);
+        }
+    );
+}
+
+// ── RESIZE ──────────────────────────────────────────────────────
+function onResize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    // Orthographic: อัพเดต aspect
+    const aspect = w / h;
+    camera.left   = -aspect;
+    camera.right  =  aspect;
+    camera.top    =  1;
+    camera.bottom = -1;
+    camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// ── MEDIAPIPE ───────────────────────────────────────────────────
+let faceLandmarker;
+
+async function initFace() {
+    const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+    );
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+            delegate: "GPU"
+        },
+        outputFaceBlendshapes: false,
+        outputFacialTransformationMatrixes: true,   // ← สำคัญ: ได้ rotation matrix
+        runningMode: "VIDEO",
+        numFaces: 1
+    });
+}
+
+async function initCamera() {
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    video.srcObject = stream;
+    return new Promise(res => video.addEventListener('loadeddata', res, { once: true }));
+}
+
+// ── MAP พิกัด landmark (0-1) → Orthographic world coords ────────
+// Orthographic camera ของเรา: x ∈ [-aspect, aspect], y ∈ [-1, 1]
+// landmark.x: 0 = ซ้ายของ video (เพราะ video mirror ด้วย CSS)
+function lmToWorld(lm) {
+    const aspect = window.innerWidth / window.innerHeight;
+    // mirror กลับ (เพราะ video ถูก scaleX(-1))
+    const x = (1 - lm.x - 0.5) * 2 * aspect;
+    const y = -(lm.y - 0.5) * 2;
+    return { x, y, z: lm.z };
+}
+
+// ── MAIN LOOP ────────────────────────────────────────────────────
+let lastVideoTime = -1;
+
+function predict() {
+    requestAnimationFrame(predict);
+
+    if (!faceLandmarker || video.readyState < 2) {
+        renderer.render(scene, camera);
+        return;
+    }
+
+    if (video.currentTime === lastVideoTime) {
+        renderer.render(scene, camera);
+        return;
+    }
+    lastVideoTime = video.currentTime;
+
+    const results = faceLandmarker.detectForVideo(video, performance.now());
+
+    if (
+        results.faceLandmarks?.length > 0 &&
+        hatModel
+    ) {
+        const lms = results.faceLandmarks[0];
+
+        // จุดอ้างอิง: 
+        //  10  = กลางหน้าผาก (top of head area)
+        // 234, 454 = กกหู ซ้าย/ขวา  → วัดความกว้างหน้า
+        const top   = lmToWorld(lms[10]);
+        const left  = lmToWorld(lms[234]);
+        const right = lmToWorld(lms[454]);
+
+        // ตำแหน่ง X: กึ่งกลางระหว่างกกหูทั้งสอง
+        const cx = (left.x + right.x) / 2;
+
+        // ความกว้างหน้าใน world coords
+        const faceW = Math.abs(right.x - left.x);
+
+        // ตำแหน่ง Y: ยกขึ้นตาม yOffset (เป็นสัดส่วนของความกว้างหน้า)
+        const cy = top.y + yOffset * faceW;
+
+        hatModel.position.set(cx, cy, 0);
+
+        // Scale ตามความกว้างหน้า
+        const s = faceW * scaleMulti;
+        hatModel.scale.set(s, s, s);
+
+        // ── Rotation: ใช้ facial transformation matrix ถ้ามี ──
+        if (results.facialTransformationMatrixes?.length > 0) {
+            const m = results.facialTransformationMatrixes[0].data; // Float32Array 16
+            const mat4 = new THREE.Matrix4().fromArray(m);
+            const euler = new THREE.Euler().setFromRotationMatrix(mat4, 'XYZ');
+            // mirror X rotation เพราะกล้อง mirror
+            hatModel.rotation.set(euler.x, -euler.y, -euler.z);
         }
 
-        // 2. ตั้งค่า MediaPipe และเปิดกล้อง
-        async function initAR() {
-            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm");
-            faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-                baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-                    delegate: "GPU"
-                },
-                runningMode: "VIDEO"
-            });
+        hatModel.visible = true;
 
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = stream;
-            video.addEventListener('loadeddata', predict);
-        }
+        // debug
+        document.getElementById('d-face').textContent  = `x:${cx.toFixed(2)} y:${cy.toFixed(2)}`;
+        document.getElementById('d-scale').textContent = `${s.toFixed(3)} (×${scaleMulti.toFixed(1)})`;
+    } else if (hatModel) {
+        hatModel.visible = false;
+    }
 
-        // 3. วนลูปคำนวณพิกัดใบหน้าและขยับหมวก
-        async function predict() {
-            if (faceLandmarker) {
-                const results = faceLandmarker.detectForVideo(video, performance.now());
-                if (results.faceLandmarks && results.faceLandmarks.length > 0 && hatModel) {
-                    const landmarks = results.faceLandmarks[0];
-                    
-                    const topHead = landmarks[10];
+    renderer.render(scene, camera);
+}
 
-                    // --- จุดที่แก้ไขตัวเลขพิกัด ---
-                    hatModel.position.x = -(topHead.x - 0.5) * 5; 
-                    
-                    // ปรับตำแหน่งความสูง (แกน Y): เพิ่มจาก +0.5 เป็น +1.2 เพื่อยกหมวกขึ้น
-                    hatModel.position.y = -(topHead.y - 0.5) * 5 + 1.2; 
-                    
-                    // ปรับตำแหน่งความลึก (แกน Z): เปลี่ยนจาก *10 เป็น *2 เพื่อให้หมวกเข้ามาใกล้หน้า
-                    hatModel.position.z = -topHead.z * 0.8; 
-                    // ---------------------------
+// ── BOOT ─────────────────────────────────────────────────────────
+async function boot() {
+    initThree();
+    loadTxt.textContent = 'กำลังโหลด MediaPipe...';
+    await initFace();
+    loadTxt.textContent = 'กำลังเปิดกล้อง...';
+    await initCamera();
+    loading.style.display = 'none';
+    predict();
+}
 
-                    const faceSize = Math.abs(landmarks[234].x - landmarks[454].x); 
-                    hatModel.scale.set(faceSize * 5, faceSize * 5, faceSize * 5);
-                }
-            }
-            renderer.render(scene, camera);
-            requestAnimationFrame(predict);
-        }
-
-        initThree();
-        initAR();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
+boot().catch(err => {
+    loadTxt.textContent = '❌ Error: ' + err.message;
+    console.error(err);
+});
+</script>
 </body>
 </html>
