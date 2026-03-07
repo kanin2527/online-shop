@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>AR Hat Try-on - cap.glb</title>
+    <title>AR Hat Try-on - ar-assets</title>
     <style>
         body { margin: 0; background-color: #000; overflow: hidden; }
         #video { transform: scaleX(-1); width: 100vw; height: 100vh; object-fit: cover; }
@@ -22,27 +22,28 @@
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('output_canvas');
-        let faceLandmarker, scene, camera, renderer, hatModel;
+        let faceLandmarker;
+        let scene, camera, renderer, hatModel;
 
+        // 1. ตั้งค่า Three.js สำหรับแสดงผล 3D
         function initThree() {
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
 
-            scene.add(new THREE.AmbientLight(0xffffff, 2.0)); // เพิ่มความสว่างให้หมวก
-            
+            const light = new THREE.AmbientLight(0xffffff, 1.5);
+            scene.add(light);
+
             const loader = new THREE.GLTFLoader();
-            // ใช้ชื่อไฟล์ cap.glb ตามที่คุณระบุ
+            // *** เปลี่ยนชื่อไฟล์ 'your_hat.glb' ให้ตรงกับที่คุณอัปโหลดขึ้น GitHub ***
             loader.load('cap.glb', (gltf) => {
                 hatModel = gltf.scene;
                 scene.add(hatModel);
-                console.log("หมวก cap.glb โหลดสำเร็จ!");
-            }, undefined, (error) => {
-                console.error("โหลดหมวกไม่ได้: ", error);
             });
         }
 
+        // 2. ตั้งค่า MediaPipe และเปิดกล้อง
         async function initAR() {
             const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm");
             faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
@@ -58,28 +59,24 @@
             video.addEventListener('loadeddata', predict);
         }
 
+        // 3. วนลูปคำนวณพิกัดใบหน้าและขยับหมวก
         async function predict() {
-            if (faceLandmarker && video.readyState >= 2) {
+            if (faceLandmarker) {
                 const results = faceLandmarker.detectForVideo(video, performance.now());
                 if (results.faceLandmarks && results.faceLandmarks.length > 0 && hatModel) {
                     const landmarks = results.faceLandmarks[0];
                     
-                    const noseBridge = landmarks[6];  // ดั้งจมูก
-                    const topHead = landmarks[10];    // บนหน้าผาก
+                    // จุดที่ 10 คือพิกัดบนหน้าผาก/ส่วนบนของหัว
+                    const topHead = landmarks[10];
 
-                    // ปรับตำแหน่งตามที่คุณแจ้ง: ดึงเข้าหาตัว และ ยกขึ้น
-                    hatModel.position.x = -(noseBridge.x - 0.5) * 5;
-                    hatModel.position.y = -(topHead.y - 0.5) * 5 + 1.2; // ยกขึ้น 20-30 ซม.
-                    hatModel.position.z = -noseBridge.z * 1.5; // ดึงเข้ามาใกล้หน้ามากขึ้น (ลดตัวคูณ)
-
-                    // ปรับขนาดหมวก
-                    const faceWidth = Math.abs(landmarks[234].x - landmarks[454].x);
-                    hatModel.scale.set(faceWidth * 5, faceWidth * 5, faceWidth * 5);
-
-                    // ปรับการเอียงหมวกตามหัว
-                    const eyeLeft = landmarks[33];
-                    const eyeRight = landmarks[263];
-                    hatModel.rotation.y = Math.atan2(eyeRight.z - eyeLeft.z, eyeRight.x - eyeLeft.x);
+                    // แปลงพิกัด MediaPipe (0-1) เป็นพิกัด Three.js
+                    hatModel.position.x = -(topHead.x - 0.5) * 5; 
+                    hatModel.position.y = -(topHead.y - 0.5) * 5 + 0.5; // +0.5 เพื่อยกหมวกขึ้นเหนือหัวเล็กน้อย
+                    hatModel.position.z = -topHead.z * 10;
+                    
+                    // ปรับขนาดหมวกอัตโนมัติตามระยะห่างของใบหน้า
+                    const faceSize = Math.abs(landmarks[234].x - landmarks[454].x); 
+                    hatModel.scale.set(faceSize * 5, faceSize * 5, faceSize * 5);
                 }
             }
             renderer.render(scene, camera);
@@ -88,6 +85,12 @@
 
         initThree();
         initAR();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
