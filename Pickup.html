@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>รับงาน</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:#f4f6f9; font-family:'Kanit',sans-serif; padding-bottom:90px; min-height:100vh; }
+    .header { background:linear-gradient(135deg,#22c55e 0%,#15803d 100%); color:white; padding:20px 18px 58px; border-radius:0 0 32px 32px; }
+    .header-top { display:flex; align-items:center; gap:12px; }
+    .back-btn { background:rgba(255,255,255,0.2); border:none; border-radius:50%; width:42px; height:42px; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+    .h-title { font-size:1.1rem; font-weight:700; }
+    .h-sub   { font-size:0.74rem; opacity:0.75; margin-top:3px; }
+    .reload-btn { margin-left:auto; background:rgba(255,255,255,0.2); border:none; border-radius:50%; width:42px; height:42px; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1.1rem; }
+    .summary-card { margin:-32px 16px 16px; background:white; border-radius:20px; padding:16px 18px; box-shadow:0 6px 24px rgba(0,0,0,0.10); position:relative; z-index:5; display:flex; align-items:center; gap:14px; }
+    .sum-icon { width:52px; height:52px; border-radius:14px; background:linear-gradient(135deg,#22c55e,#15803d); display:flex; align-items:center; justify-content:center; color:white; font-size:1.5rem; flex-shrink:0; }
+    .sum-title { font-weight:700; font-size:0.95rem; color:#1a1a2e; }
+    .sum-sub   { font-size:0.74rem; color:#888; margin-top:3px; }
+    .section-lbl { padding:0 16px 10px; font-weight:700; font-size:0.88rem; color:#555; display:flex; align-items:center; gap:8px; }
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:white; padding:10px 14px 22px; box-shadow:0 -4px 20px rgba(0,0,0,0.10); display:flex; gap:8px; z-index:300; }
+    .nav-btn { flex:1; padding:10px 4px; border:none; border-radius:14px; font-family:'Kanit',sans-serif; font-weight:700; font-size:0.68rem; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; transition:0.2s; background:#f1f3f5; color:#aaa; }
+    .nav-btn i { font-size:1.3rem; }
+    .nav-btn:active { transform:scale(0.95); }
+    .nav-pickup { background:linear-gradient(135deg,#22c55e,#15803d) !important; color:white !important; box-shadow:0 4px 14px rgba(34,197,94,0.35); }
+    .group-card { margin:0 16px 14px; background:white; border-radius:18px; box-shadow:0 3px 12px rgba(0,0,0,0.07); overflow:hidden; animation:slideUp 0.25s ease; }
+    .group-head { padding:14px 15px; cursor:pointer; user-select:none; display:flex; align-items:center; gap:12px; }
+    .group-head:active { background:#f8f9fa; }
+    .group-avatar { width:46px; height:46px; border-radius:13px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:white; font-size:1.3rem; background:linear-gradient(135deg,#22c55e,#15803d); }
+    .group-name { font-weight:700; font-size:0.92rem; color:#1a1a2e; }
+    .group-sub  { font-size:0.72rem; color:#888; margin-top:2px; }
+    .nav-btn-map { margin-left:auto; flex-shrink:0; background:linear-gradient(135deg,#f97316,#ea580c); border:none; border-radius:10px; padding:8px 12px; color:white; font-family:'Kanit',sans-serif; font-weight:700; font-size:0.72rem; cursor:pointer; display:flex; align-items:center; gap:5px; box-shadow:0 2px 8px rgba(249,115,22,0.35); }
+    .nav-btn-map:active { transform:scale(0.95); }
+    .chevron { font-size:1rem; color:#bbb; flex-shrink:0; transition:transform 0.2s; margin-left:8px; }
+    .group-body { display:none; border-top:1px solid #f3f4f6; }
+    .group-body.open { display:block; }
+    .group-foot { padding:10px 15px 12px; border-top:1px solid #f3f4f6; display:flex; justify-content:space-between; align-items:center; }
+    .gf-count { font-size:0.78rem; color:#aaa; }
+    .gf-total { font-weight:700; font-size:0.95rem; color:#ff4757; }
+    .item-row { display:flex; align-items:center; gap:10px; padding:10px 15px; border-bottom:1px dashed #f0f0f0; }
+    .item-row:last-child { border-bottom:none; }
+    .item-name { font-weight:600; font-size:0.85rem; color:#1a1a2e; }
+    .item-sub  { font-weight:700; color:#ff4757; font-size:0.85rem; white-space:nowrap; flex-shrink:0; }
+    .st-pill { display:inline-flex; align-items:center; font-size:0.62rem; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+    .st-wait { background:#fff3cd; color:#856404; }
+    .st-ok   { background:#d1fae5; color:#065f46; }
+    .st-done { background:#dbeafe; color:#1d4ed8; }
+    .st-btn { padding:5px 10px; border:none; border-radius:9px; font-family:'Kanit',sans-serif; font-weight:700; font-size:0.68rem; cursor:pointer; display:flex; align-items:center; gap:4px; white-space:nowrap; transition:0.15s; }
+    .st-btn:active { transform:scale(0.95); }
+    .st-btn-act  { background:linear-gradient(135deg,#22c55e,#15803d); color:white; box-shadow:0 2px 8px rgba(34,197,94,0.3); }
+    .st-btn-done { background:#d1fae5; color:#6ee7b7; cursor:not-allowed; }
+    .empty-box { text-align:center; padding:60px 20px; color:#ccc; }
+    .empty-box i { font-size:3.5rem; display:block; margin-bottom:14px; }
+    .empty-box p { font-size:0.95rem; font-weight:600; }
+    .loading-box { text-align:center; padding:60px 20px; color:#22c55e; }
+    .spin-ring { width:44px; height:44px; border:4px solid #dcfce7; border-top-color:#22c55e; border-radius:50%; animation:sp 0.8s linear infinite; margin:0 auto 14px; }
+    @keyframes sp      { to{transform:rotate(360deg)} }
+    @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    .icon-spin { animation:sp 0.6s linear infinite; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <button class="back-btn" onclick="window.location.href='Staff.html'"><i class="bi bi-arrow-left"></i></button>
+    <div>
+      <div class="h-title">รับงาน — จากร้านค้า</div>
+      <div class="h-sub" id="hSub">กำลังโหลด...</div>
+    </div>
+    <button class="reload-btn" onclick="reload()"><i class="bi bi-arrow-clockwise" id="reloadIcon"></i></button>
+  </div>
+</div>
+
+<div class="summary-card">
+  <div class="sum-icon"><i class="bi bi-shop"></i></div>
+  <div>
+    <div class="sum-title" id="sumTitle">กำลังโหลด...</div>
+    <div class="sum-sub"   id="sumSub">—</div>
+  </div>
+</div>
+
+<div class="section-lbl"><i class="bi bi-shop" style="color:#22c55e;"></i>รับสินค้าจากร้านค้าทีละร้าน</div>
+<div id="pickupList">
+  <div class="loading-box"><div class="spin-ring"></div><div style="font-weight:600;font-size:0.9rem;">กำลังโหลด...</div></div>
+</div>
+
+<div class="bottom-nav">
+  <button class="nav-btn" onclick="window.location.href='Staff.html'"><i class="bi bi-list-check"></i>ออเดอร์</button>
+  <button class="nav-btn nav-pickup"><i class="bi bi-shop"></i>รับงาน</button>
+  <button class="nav-btn" onclick="window.location.href='Deliver.html'"><i class="bi bi-send"></i>ส่งงาน</button>
+</div>
+
+<script>
+var SB_URL='https://tkjvhcqkfddcbjcdpfye.supabase.co';
+var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRranZoY3FrZmRkY2JqY2RwZnllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMjgzMTcsImV4cCI6MjA4ODYwNDMxN30.JgYngweL4ypH4rIGzuNITT8ibA2B_xW3r9LL3_hqSG4';
+async function sbGet(t,q){var r=await fetch(SB_URL+'/rest/v1/'+t+(q||''),{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbPatch(t,q,b){var r=await fetch(SB_URL+'/rest/v1/'+t+(q||''),{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());return true;}
+
+var pickupData=[];
+window.addEventListener('load', loadPickup);
+
+async function loadPickup(){
+  document.getElementById('pickupList').innerHTML=loadingHtml();
+  try {
+    // ดึง orders ที่ confirmed/picked
+    var orders=await sbGet('orders','?status=in.(confirmed,picked,ยืนยันแล้ว,รับงานแล้ว)&select=id,order_id,status,customer_name,customer_phone');
+    if(!orders.length){ pickupData=[]; renderPickup(); stopSpin(); return; }
+
+    // ดึง order_items ทั้งหมดของ orders เหล่านั้น
+    var oIds=orders.map(function(o){return o.id;});
+    var items=await sbGet('order_items','?order_id=in.('+oIds.join(',')+')'+'&item_status=not.in.(done,delivering,ส่งงานแล้ว,เสร็จสิ้น)&order=shop_name,item_index');
+
+    // map orderId → order info
+    var orderMap={};
+    orders.forEach(function(o){orderMap[o.id]=o;});
+
+    // จัดกลุ่มตามร้าน
+    var shopMap={};
+    items.forEach(function(it){
+      var sn=it.shop_name||'ไม่ระบุร้าน';
+      if(!shopMap[sn]) shopMap[sn]={name:sn,items:[],totalPrice:0};
+      var ord=orderMap[it.order_id]||{};
+      shopMap[sn].items.push({itemId:it.id,orderId:ord.order_id||'',orderUUID:it.order_id,name:it.item_name,qty:it.qty,subtotal:it.subtotal,itemStatus:it.item_status,itemIndex:it.item_index});
+      shopMap[sn].totalPrice+=(it.subtotal||0);
+    });
+
+    // ดึง lat/lng ของร้าน
+    var shopNames=Object.keys(shopMap);
+    if(shopNames.length){
+      try {
+        var shops=await sbGet('shops','?select=name,address,lat,lng');
+        shops.forEach(function(s){ if(shopMap[s.name]){shopMap[s.name].address=s.address;shopMap[s.name].lat=s.lat;shopMap[s.name].lng=s.lng;} });
+      }catch(e2){}
+    }
+
+    pickupData=shopNames.map(function(n){return shopMap[n];});
+    renderPickup(); stopSpin();
+  } catch(e){ stopSpin(); document.getElementById('pickupList').innerHTML=errHtml(e); }
+}
+
+function reload(){ document.getElementById('reloadIcon').classList.add('icon-spin'); loadPickup(); }
+
+function renderPickup(){
+  var el=document.getElementById('pickupList');
+  if(!pickupData.length){ el.innerHTML=emptyHtml('bi-shop','ไม่มีรายการรับสินค้า'); updateSummary(); return; }
+  updateSummary();
+  el.innerHTML=pickupData.map(function(shop,si){
+    var bid='pb_'+si;
+    var totalQty=shop.items.reduce(function(s,it){return s+(it.qty||0);},0);
+    var itemsHtml=shop.items.map(function(it,ii){
+      var st=it.itemStatus||'pending';
+      var isPickedUp=['picked','รับงานแล้ว'].indexOf(st)!==-1;
+      var isSent=['done','delivering','ส่งงานแล้ว','เสร็จสิ้น'].indexOf(st)!==-1;
+      var uid='pu_'+si+'_'+ii;
+      var pillCls=isSent?'st-done':isPickedUp?'st-ok':'st-wait';
+      var pillTxt=isSent?'📦 ส่งแล้ว':isPickedUp?'🛍️ รับงานแล้ว':'🕐 รอรับ';
+      var btnHtml=isSent?'':isPickedUp
+        ?'<button class="st-btn st-btn-done" disabled><i class="bi bi-check2-circle"></i> รับแล้ว</button>'
+        :'<button class="st-btn st-btn-act" id="'+uid+'" onclick="pickupItem(\''+esc(it.itemId)+'\',\''+esc(it.orderUUID)+'\','+si+','+ii+',\''+uid+'\')"><i class="bi bi-bag-check-fill"></i> รับงาน</button>';
+      return '<div class="item-row">'+
+        '<div style="flex:1;">'+
+        '<div style="font-size:0.72rem;color:#888;margin-bottom:2px;"><i class="bi bi-bag me-1"></i>ออเดอร์ '+esc(it.orderId)+'</div>'+
+        '<div class="item-name">'+esc(it.name)+'</div>'+
+        '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">'+
+        '<span style="font-size:0.72rem;color:#aaa;">จำนวน <strong>'+(it.qty||0)+' ชิ้น</strong></span>'+
+        '<span class="st-pill '+pillCls+'">'+pillTxt+'</span></div></div>'+
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">'+
+        '<div class="item-sub">฿'+Number(it.subtotal||0).toLocaleString()+'</div>'+
+        btnHtml+'</div></div>';
+    }).join('');
+    var mapBtn=(shop.lat&&shop.lng)
+      ?'<button class="nav-btn-map" onclick="openMap(\''+esc(shop.lat)+'\',\''+esc(shop.lng)+'\',\''+esc(shop.name)+'\');event.stopPropagation();"><i class="bi bi-navigation-fill"></i>นำทาง</button>'
+      :'<span style="font-size:0.7rem;color:#ccc;margin-left:auto;">ไม่มีพิกัด</span>';
+    return '<div class="group-card">'+
+      '<div class="group-head" onclick="toggleBody(\''+bid+'\')">'+
+      '<div class="group-avatar"><i class="bi bi-shop"></i></div>'+
+      '<div style="flex:1;min-width:0;"><div class="group-name">'+esc(shop.name)+'</div>'+
+      '<div class="group-sub"><i class="bi bi-geo-alt me-1"></i>'+esc(shop.address||'ไม่มีที่อยู่')+'</div></div>'+
+      mapBtn+'<i class="bi bi-chevron-down chevron" id="chv_'+bid+'"></i></div>'+
+      '<div class="group-body open" id="'+bid+'">'+itemsHtml+
+      '<div class="group-foot"><span class="gf-count">'+shop.items.length+' รายการ · '+totalQty+' ชิ้น</span>'+
+      '<span class="gf-total">฿'+Number(shop.totalPrice||0).toLocaleString()+'</span></div>'+
+      '</div></div>';
+  }).join('');
+}
+
+function updateSummary(){
+  var ts=pickupData.length, ti=pickupData.reduce(function(s,sh){return s+sh.items.length;},0);
+  document.getElementById('sumTitle').textContent='รับงาน '+ts+' ร้านค้า';
+  document.getElementById('sumSub').textContent='สินค้ารวม '+ti+' รายการ';
+  document.getElementById('hSub').textContent=ts+' ร้าน · '+ti+' รายการ';
+}
+
+async function pickupItem(itemId,orderUUID,si,ii,uid){
+  var btn=document.getElementById(uid);
+  if(btn){btn.disabled=true;btn.innerHTML=spinHtml()+'รับงาน...';}
+  try{
+    await sbPatch('order_items','?id=eq.'+itemId,{item_status:'picked'});
+    await sbPatch('orders','?id=eq.'+orderUUID+'&status=eq.confirmed',{status:'picked'});
+    pickupData[si].items[ii].itemStatus='picked';
+    renderPickup();
+  }catch(e){
+    alert('เกิดข้อผิดพลาด: '+(e.message||e));
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-bag-check-fill"></i> รับงาน';}
+  }
+}
+
+function openMap(lat,lng,label){if(!lat||!lng){alert('⚠️ ไม่มีพิกัด');return;}window.open('https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng+'&travelmode=driving','_blank');}
+function toggleBody(id){var b=document.getElementById(id),c=document.getElementById('chv_'+id);if(!b)return;var op=b.classList.toggle('open');if(c)c.style.transform=op?'rotate(180deg)':'';}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function stopSpin(){document.getElementById('reloadIcon').classList.remove('icon-spin');}
+function loadingHtml(){return'<div class="loading-box"><div class="spin-ring"></div><div style="font-weight:600;font-size:0.9rem;">กำลังโหลด...</div></div>';}
+function emptyHtml(ic,msg){return'<div class="empty-box"><i class="bi '+ic+'"></i><p>'+msg+'</p></div>';}
+function errHtml(e){return'<div class="empty-box"><i class="bi bi-exclamation-triangle" style="color:#ff4757;"></i><p style="color:#ff4757;">เกิดข้อผิดพลาด<br><span style="font-size:0.75rem;font-weight:400;">'+String(e.message||e)+'</span></p></div>';}
+function spinHtml(){return'<div style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.4);border-top-color:white;border-radius:50%;animation:sp 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:4px;"></div>';}
+</script>
+</body>
+</html>

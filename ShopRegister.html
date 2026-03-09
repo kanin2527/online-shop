@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>สมัครแม่ค้า / จัดการร้านค้า</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary:#ff4757; --dark:#1a1a2e; --accent:#f0e68c; --orange:#ff9800; --bg:#f4f6f9; }
+        * { box-sizing:border-box; }
+        body { background:var(--bg); font-family:'Kanit',sans-serif; padding-bottom:120px; min-height:100vh; }
+
+        .sh-header {
+            background:linear-gradient(135deg,#1a1a2e 0%,#2d2d5e 100%);
+            color:white; padding:20px 20px 55px; border-radius:0 0 35px 35px;
+        }
+        .sh-header h5 { font-weight:700; font-size:1.1rem; margin:0; color:var(--accent); }
+        .back-btn {
+            background:rgba(255,255,255,0.15); border:none; border-radius:50%;
+            width:40px; height:40px; color:white; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center; cursor:pointer;
+        }
+
+        .step-bar { display:flex; gap:5px; padding:14px 16px 4px; }
+        .step { flex:1; height:5px; border-radius:4px; background:#e9ecef; transition:0.4s; }
+        .step.done   { background:var(--orange); }
+        .step.active { background:#ffcc80; }
+
+        .sc { margin:0 16px 14px; background:white; border-radius:22px; padding:18px; box-shadow:0 4px 15px rgba(0,0,0,0.07); }
+        .sc.first { margin-top:-30px; position:relative; z-index:5; }
+        .sc-title {
+            font-weight:700; font-size:0.88rem; color:var(--dark);
+            display:flex; align-items:center; gap:8px; margin-bottom:14px;
+            padding-bottom:10px; border-bottom:1px solid #f0f0f5;
+        }
+        .sc-title i { color:var(--orange); }
+
+        .flabel { font-size:0.8rem; color:#888; margin-bottom:5px; font-weight:500; }
+        .finput {
+            width:100%; border:2px solid #e9ecef; border-radius:14px;
+            padding:12px 16px; font-family:'Kanit',sans-serif; font-size:1rem;
+            outline:none; transition:0.2s; background:white;
+        }
+        .finput:focus { border-color:var(--orange); }
+
+        /* GPS */
+        .gps-btn {
+            width:100%; padding:14px; background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+            color:white; border:none; border-radius:14px; font-family:'Kanit',sans-serif;
+            font-weight:700; font-size:0.95rem; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            gap:10px; margin-bottom:12px; box-shadow:0 4px 12px rgba(59,130,246,0.3);
+        }
+        .gps-btn:disabled { background:#93c5fd; box-shadow:none; cursor:not-allowed; }
+        .gspin { width:18px; height:18px; border:3px solid rgba(255,255,255,0.35); border-top-color:white; border-radius:50%; animation:spin .7s linear infinite; display:none; }
+        .gps-status { border-radius:14px; padding:12px 16px; font-size:0.85rem; display:none; align-items:flex-start; gap:10px; }
+        .gps-status.show { display:flex; }
+        .gps-status.info  { background:#eff6ff; color:#1d4ed8; border:1.5px solid #bfdbfe; }
+        .gps-status.ok    { background:#f0fff4; color:#16a34a; border:1.5px solid #86efac; }
+        .gps-status.err   { background:#fff5f5; color:#dc2626; border:1.5px solid #fca5a5; }
+        .coord-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+        .coord-box { background:#f0fff4; border:1.5px solid #86efac; border-radius:12px; padding:10px 14px; }
+        .coord-lbl { font-size:0.7rem; color:#65a36a; font-weight:600; margin-bottom:3px; }
+        .coord-val { font-size:1rem; font-weight:700; color:#16a34a; font-family:monospace; }
+        #mapBox { width:100%; border-radius:14px; overflow:hidden; border:2px solid #86efac; margin-top:12px; display:none; }
+        #mapBox img { width:100%; display:block; }
+
+        /* Shop Photo */
+        .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+        .pbtn {
+            padding:13px 8px; border:none; border-radius:14px;
+            font-family:'Kanit',sans-serif; font-weight:600; font-size:0.85rem;
+            cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;
+        }
+        .pbtn.dark { background:linear-gradient(135deg,var(--dark),#2d2d5e); color:var(--accent); }
+        .pbtn.lite { background:#f8f9fa; color:#444; border:2px solid #dee2e6; }
+        .photo-prev-wrap { position:relative; border-radius:14px; overflow:hidden; background:#f0f0f5; display:none; border:2px solid #e9ecef; }
+        .photo-prev-wrap img { width:100%; height:200px; object-fit:cover; display:block; }
+        .upoverlay { position:absolute; inset:0; background:rgba(0,0,0,0.6); display:none; flex-direction:column; align-items:center; justify-content:center; color:white; gap:8px; }
+        .bspin { width:32px; height:32px; border:3px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin .7s linear infinite; }
+        .done-badge { position:absolute; top:8px; right:8px; background:#22c55e; color:white; border-radius:20px; padding:4px 12px; font-size:0.75rem; font-weight:700; display:none; align-items:center; gap:4px; }
+        .done-badge.show { display:flex; }
+        .retake-btn { position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.65); color:white; border:none; border-radius:20px; padding:5px 14px; font-family:'Kanit',sans-serif; font-size:0.78rem; cursor:pointer; }
+
+        /* Product Grid */
+        .prod-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .prod-card { border:2px dashed #dee2e6; border-radius:18px; overflow:hidden; background:white; transition:0.25s; display:flex; flex-direction:column; }
+        .prod-card.filled { border-style:solid; border-color:#ffd54f; box-shadow:0 3px 14px rgba(255,152,0,0.18); }
+        .prod-img-wrap { position:relative; width:100%; aspect-ratio:3/4; background:#f5f5f5; cursor:pointer; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+        .prod-img-wrap img { width:100%; height:100%; object-fit:cover; display:block; }
+        .prod-empty-ph { text-align:center; color:#ccc; padding:10px; }
+        .prod-empty-ph i { font-size:2rem; display:block; margin-bottom:6px; }
+        .prod-empty-ph span { font-size:0.75rem; line-height:1.3; }
+        .prod-hover-ov { position:absolute; inset:0; background:rgba(0,0,0,0.48); display:none; flex-direction:column; align-items:center; justify-content:center; color:white; gap:6px; }
+        .prod-hover-ov i { font-size:1.6rem; }
+        .prod-hover-ov span { font-size:0.78rem; }
+        .prod-img-wrap:active .prod-hover-ov { display:flex; }
+        .card-num { position:absolute; top:8px; left:8px; background:rgba(26,26,46,0.82); color:var(--accent); border-radius:14px; padding:3px 9px; font-size:0.72rem; font-weight:700; z-index:2; }
+        .card-ok { position:absolute; top:8px; right:8px; background:#22c55e; color:white; border-radius:14px; padding:3px 9px; font-size:0.7rem; font-weight:700; display:none; align-items:center; gap:3px; z-index:2; }
+        .card-ok.show { display:flex; }
+        .card-spin { position:absolute; width:36px; height:36px; border:3px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin .7s linear infinite; display:none; z-index:3; }
+        .edit-img-btn { position:absolute; bottom:6px; right:6px; background:rgba(26,26,46,0.82); color:var(--accent); border:none; border-radius:12px; padding:4px 10px; font-family:'Kanit',sans-serif; font-size:0.72rem; font-weight:600; cursor:pointer; display:none; align-items:center; gap:4px; z-index:2; }
+        .edit-img-btn.show { display:flex; }
+        .prod-form { padding:10px 10px 12px; flex:1; }
+        .pname { width:100%; border:none; border-bottom:2px solid #e9ecef; padding:6px 2px; font-family:'Kanit',sans-serif; font-size:0.88rem; font-weight:600; color:var(--dark); outline:none; background:transparent; margin-bottom:8px; }
+        .pname:focus { border-bottom-color:var(--orange); }
+        .pname::placeholder { color:#ccc; font-weight:400; font-size:0.82rem; }
+        .price-row { display:flex; align-items:center; gap:5px; margin-bottom:6px; }
+        .psym { font-weight:700; color:var(--primary); font-size:0.95rem; flex-shrink:0; }
+        .pprice { flex:1; border:none; border-bottom:2px solid #e9ecef; padding:5px 2px; font-family:'Kanit',sans-serif; font-size:0.95rem; font-weight:700; color:var(--primary); outline:none; background:transparent; min-width:0; }
+        .pprice:focus { border-bottom-color:var(--primary); }
+        .pprice::placeholder { color:#fbb; font-weight:400; font-size:0.82rem; }
+        .qty-row { display:flex; align-items:center; gap:5px; }
+        .qlbl { font-size:0.72rem; color:#aaa; flex-shrink:0; }
+        .pqty { flex:1; border:none; border-bottom:2px solid #e9ecef; padding:5px 2px; font-family:'Kanit',sans-serif; font-size:0.82rem; color:#555; outline:none; background:transparent; min-width:0; }
+        .pqty:focus { border-bottom-color:var(--orange); }
+        .pqty::placeholder { color:#ddd; font-size:0.78rem; }
+
+        /* Bottom Sheet */
+        .sheet-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:200; display:none; }
+        .sheet-backdrop.show { display:block; }
+        .bottom-sheet { position:fixed; bottom:0; left:0; right:0; z-index:201; background:white; border-radius:26px 26px 0 0; padding:20px 20px 36px; box-shadow:0 -8px 30px rgba(0,0,0,0.18); transform:translateY(100%); transition:transform 0.3s ease; }
+        .bottom-sheet.open { transform:translateY(0); }
+        .sheet-handle { width:40px; height:4px; background:#dee2e6; border-radius:4px; margin:0 auto 18px; }
+        .sheet-title { font-weight:700; font-size:1rem; color:var(--dark); margin-bottom:16px; text-align:center; }
+        .sheet-btns { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .sheet-btn { padding:16px; border:none; border-radius:16px; font-family:'Kanit',sans-serif; font-weight:700; font-size:0.95rem; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:8px; }
+        .sheet-btn i { font-size:1.6rem; }
+        .sheet-btn.cam { background:linear-gradient(135deg,var(--dark),#2d2d5e); color:var(--accent); }
+        .sheet-btn.gal { background:#f8f9fa; color:#444; border:2px solid #e9ecef; }
+        .sheet-cancel { width:100%; margin-top:10px; padding:13px; border:none; border-radius:14px; background:#fee2e2; color:#dc2626; font-family:'Kanit',sans-serif; font-weight:700; font-size:0.95rem; cursor:pointer; }
+
+        /* Confirm Bar */
+        .confirm-bar { position:fixed; bottom:0; left:0; right:0; padding:12px 16px 26px; background:white; box-shadow:0 -4px 20px rgba(0,0,0,0.10); z-index:100; }
+        .save-btn { width:100%; padding:16px; background:linear-gradient(135deg,#ff9800,#f57c00); color:white; border:none; border-radius:18px; font-family:'Kanit',sans-serif; font-size:1rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 6px 20px rgba(255,152,0,0.35); transition:0.2s; }
+        .save-btn:active   { transform:scale(0.98); }
+        .save-btn:disabled { background:#d1d5db; box-shadow:none; cursor:not-allowed; color:#9ca3af; }
+
+        /* Fullscreen Loading */
+        .fullload { position:fixed; inset:0; background:rgba(255,255,255,0.92); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:999; backdrop-filter:blur(4px); }
+        .fullload.show { display:flex; }
+        .big-spin { width:52px; height:52px; border:5px solid #ffe0b2; border-top-color:var(--orange); border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:14px; }
+
+        @keyframes spin    { to { transform:rotate(360deg); } }
+        @keyframes slideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    </style>
+</head>
+<body>
+
+<!-- Fullscreen Loading -->
+<div class="fullload" id="fullLoad">
+    <div class="big-spin"></div>
+    <div style="font-family:'Kanit',sans-serif;font-weight:600;color:var(--orange);" id="fullLoadTxt">กำลังบันทึก...</div>
+</div>
+
+<!-- Bottom Sheet (เลือกกล้อง/แกลเลอรี) -->
+<div class="sheet-backdrop" id="backdrop" onclick="closeSheet()"></div>
+<div class="bottom-sheet" id="bottomSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="sheetTitle">เลือกรูปสินค้า</div>
+    <div class="sheet-btns">
+        <button class="sheet-btn cam" onclick="sheetPickCamera()"><i class="bi bi-camera-fill"></i> ถ่ายรูป</button>
+        <button class="sheet-btn gal" onclick="sheetPickGallery()"><i class="bi bi-image-fill"></i> แกลเลอรี</button>
+    </div>
+    <button class="sheet-cancel" onclick="closeSheet()">ยกเลิก</button>
+</div>
+
+<!-- Hidden file inputs -->
+<input type="file" id="fCam" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="fGal" accept="image/*" style="display:none">
+
+<!-- Header -->
+<div class="sh-header">
+    <div class="d-flex align-items-center gap-3">
+        <button class="back-btn" onclick="goBack()"><i class="bi bi-arrow-left"></i></button>
+        <div>
+            <h5><i class="bi bi-shop-window me-2"></i>สมัครแม่ค้า / จัดการร้านค้า</h5>
+            <div style="font-size:0.75rem;opacity:0.65;color:white;" id="headerSubShop">กรอกข้อมูลร้านค้าและสินค้าของคุณ</div>
+        </div>
+    </div>
+</div>
+
+<!-- Step Bar -->
+<div class="step-bar">
+    <div class="step done"   id="s1"></div>
+    <div class="step active" id="s2"></div>
+    <div class="step"        id="s3"></div>
+    <div class="step"        id="s4"></div>
+</div>
+
+<!-- ── TEST CONNECTION BANNER ── -->
+<div id="connBanner" style="margin:8px 16px;border-radius:14px;padding:12px 16px;
+     background:#f0f0f5;font-size:0.82rem;font-family:'Kanit',sans-serif;
+     display:flex;align-items:center;gap:10px;">
+    <div id="connDot" style="width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0;"></div>
+    <div id="connTxt" style="flex:1;color:#888;">กำลังตรวจสอบการเชื่อมต่อ Supabase...</div>
+    <button onclick="testConn()" style="border:none;background:#e9ecef;border-radius:8px;padding:5px 12px;
+        font-family:'Kanit',sans-serif;font-size:0.78rem;cursor:pointer;color:#555;">ทดสอบ</button>
+</div>
+
+<!-- ① ข้อมูลร้านค้า -->
+<div class="sc first">
+    <div class="sc-title"><i class="bi bi-person-circle"></i> ข้อมูลส่วนตัวแม่ค้า</div>
+    <div class="mb-3">
+        <div class="flabel">เบอร์โทรศัพท์ <span class="text-danger">*</span></div>
+        <input type="text" id="inPhone" class="finput" placeholder="เช่น 0987654321" maxlength="15" inputmode="numeric" oninput="syncBtn()">
+    </div>
+    <div class="mb-3">
+        <div class="flabel">ชื่อแม่ค้า / ชื่อร้าน <span class="text-danger">*</span></div>
+        <input type="text" id="inName" class="finput" placeholder="เช่น ป้าแดง ร้านผักสด" oninput="syncBtn()">
+    </div>
+    <div>
+        <div class="flabel">บ้านเลขที่ <span class="text-danger">*</span></div>
+        <input type="text" id="inAddress" class="finput" placeholder="เช่น 12/3 หมู่ 4" oninput="syncBtn()">
+    </div>
+</div>
+
+<!-- ② GPS -->
+<div class="sc">
+    <div class="sc-title"><i class="bi bi-geo-alt-fill"></i> พิกัดตำแหน่งร้านค้า</div>
+    <button class="gps-btn" id="gpsBtn" onclick="startGPS()">
+        <div class="gspin" id="gpsSpin"></div>
+        <i class="bi bi-crosshair2" id="gpsIcon"></i>
+        <span id="gpsBtnLabel">กดเพื่อเก็บพิกัดจากมือถือ</span>
+    </button>
+    <div class="gps-status info" id="gpsInfo">
+        <i class="bi bi-info-circle-fill" style="font-size:1.1rem;flex-shrink:0;"></i>
+        <div>กำลังรอการอนุญาต... กรุณากด <strong>อนุญาต</strong> ในกล่องที่โผล่ขึ้นมา</div>
+    </div>
+    <div class="gps-status ok" id="gpsOK">
+        <i class="bi bi-check-circle-fill" style="font-size:1.3rem;flex-shrink:0;color:#16a34a;"></i>
+        <div style="flex:1;">
+            <div style="font-weight:700;margin-bottom:8px;">บันทึกพิกัดสำเร็จ ✓</div>
+            <div class="coord-grid">
+                <div class="coord-box">
+                    <div class="coord-lbl"><i class="bi bi-arrow-up-down me-1"></i>LATITUDE</div>
+                    <div class="coord-val" id="dLat">—</div>
+                </div>
+                <div class="coord-box">
+                    <div class="coord-lbl"><i class="bi bi-arrow-left-right me-1"></i>LONGITUDE</div>
+                    <div class="coord-val" id="dLng">—</div>
+                </div>
+            </div>
+            <div style="font-size:0.75rem;color:#888;margin-top:7px;text-align:center;" id="dAcc"></div>
+        </div>
+    </div>
+    <div class="gps-status err" id="gpsErr">
+        <i class="bi bi-exclamation-triangle-fill" style="font-size:1.1rem;flex-shrink:0;"></i>
+        <div>
+            <div style="font-weight:700;" id="gpsErrT">ไม่สามารถรับพิกัดได้</div>
+            <div style="font-size:0.8rem;margin-top:3px;" id="gpsErrD"></div>
+        </div>
+    </div>
+    <input type="hidden" id="hidLat"><input type="hidden" id="hidLng">
+    <div id="mapBox"><img id="mapImg" alt="แผนที่" onerror="this.parentElement.style.display='none'"></div>
+</div>
+
+<!-- ③ รูปหน้าร้าน -->
+<div class="sc">
+    <div class="sc-title"><i class="bi bi-camera-fill"></i> รูปหน้าร้านค้า</div>
+    <div class="photo-grid">
+        <button class="pbtn dark" onclick="openSheet('shop')"><i class="bi bi-camera-fill"></i> ถ่ายรูป</button>
+        <button class="pbtn lite" onclick="openSheet('shop')"><i class="bi bi-image-fill"></i> แกลเลอรี</button>
+    </div>
+    <div class="photo-prev-wrap" id="shopWrap">
+        <img id="shopPreview" src="" alt="รูปหน้าร้าน">
+        <div class="upoverlay" id="shopOverlay"><div class="bspin"></div><span>กำลังอัปโหลด...</span></div>
+        <div class="done-badge" id="shopDone"><i class="bi bi-check-circle-fill"></i> อัปโหลดแล้ว</div>
+        <button class="retake-btn" onclick="openSheet('shop')"><i class="bi bi-arrow-repeat me-1"></i>ถ่ายใหม่</button>
+    </div>
+    <input type="hidden" id="shopPhotoUrl">
+</div>
+
+<!-- ④ สินค้า 5 การ์ด -->
+<div class="sc">
+    <div class="sc-title"><i class="bi bi-grid-fill"></i> สินค้าของร้าน (5 รายการ)</div>
+    <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">กดที่การ์ดเพื่อถ่ายรูปสินค้า แล้วกรอกชื่อ ราคา และจำนวน</p>
+    <div class="prod-grid" id="prodGrid"></div>
+</div>
+
+<!-- Confirm Bar -->
+<div class="confirm-bar">
+    <button class="save-btn" id="saveBtn" onclick="doSave()" disabled>
+        <i class="bi bi-shop-window"></i>
+        <span id="saveTxt">กรอกข้อมูลให้ครบก่อน</span>
+    </button>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   SUPABASE CONFIG
+══════════════════════════════════════════════════════ */
+var SB_URL = 'https://tkjvhcqkfddcbjcdpfye.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRranZoY3FrZmRkY2JqY2RwZnllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMjgzMTcsImV4cCI6MjA4ODYwNDMxN30.JgYngweL4ypH4rIGzuNITT8ibA2B_xW3r9LL3_hqSG4';
+
+async function sbGet(table, query) {
+    var res = await fetch(SB_URL + '/rest/v1/' + table + (query||''), {
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+async function sbPost(table, body) {
+    var res = await fetch(SB_URL + '/rest/v1/' + table, {
+        method: 'POST',
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+        body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+async function sbPatch(table, query, body) {
+    var res = await fetch(SB_URL + '/rest/v1/' + table + (query||''), {
+        method: 'PATCH',
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return true;
+}
+async function sbDelete(table, query) {
+    var res = await fetch(SB_URL + '/rest/v1/' + table + (query||''), {
+        method: 'DELETE',
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return true;
+}
+
+/* ══════════════════════════════════════════════════════
+   TEST CONNECTION
+══════════════════════════════════════════════════════ */
+async function testConn() {
+    var dot = document.getElementById('connDot');
+    var txt = document.getElementById('connTxt');
+    var ban = document.getElementById('connBanner');
+    dot.style.background = '#fbbf24';
+    txt.textContent = 'กำลังทดสอบ...';
+    ban.style.background = '#fffbeb';
+    try {
+        var res = await fetch(SB_URL + '/rest/v1/shops?select=id&limit=1', {
+            headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+        });
+        if (res.ok) {
+            var data = await res.json();
+            dot.style.background = '#22c55e';
+            txt.textContent = '✅ เชื่อมต่อ Supabase สำเร็จ! มีร้านค้า ' + data.length + ' ร้าน';
+            ban.style.background = '#f0fff4';
+        } else {
+            var errText = await res.text();
+            dot.style.background = '#ef4444';
+            txt.textContent = '❌ Error ' + res.status + ': ' + errText;
+            ban.style.background = '#fff5f5';
+        }
+    } catch(e) {
+        dot.style.background = '#ef4444';
+        txt.textContent = '❌ เชื่อมต่อไม่ได้: ' + e.message + '  →  ต้องเปิดผ่าน localhost ไม่ใช่ file://';
+        ban.style.background = '#fff5f5';
+    }
+}
+
+/* ══════════════════════════════════════════════════════
+   CONFIG & STATE
+══════════════════════════════════════════════════════ */
+var CLOUD  = 'dnhnw0xfe';
+var PRESET = 'ml_default';
+var N      = 5;
+
+var savedLat   = '';
+var savedLng   = '';
+var shopPhoto  = '';
+var gpsWatch   = null;
+var isEditMode = false;
+var shopId     = null;   // uuid ของร้านใน Supabase (กรณี edit)
+
+var prods = [];
+for (var k = 0; k < N; k++) { prods.push({ img:'', name:'', price:'', qty:'' }); }
+
+var sheetMode    = null;
+var sheetProdIdx = -1;
+
+/* ══════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════ */
+window.addEventListener('load', function() {
+    testConn();
+    renderProdGrid();
+    syncBtn();
+
+    var savedPhone = '';
+    try { savedPhone = localStorage.getItem('shopPhone') || localStorage.getItem('savedPhone') || ''; } catch(e){}
+
+    if (savedPhone) {
+        var inPhone = document.getElementById('inPhone');
+        inPhone.value    = savedPhone;
+        inPhone.readOnly = true;
+        inPhone.style.cssText += ';background:#f0f4ff;color:#3b5bdb;font-weight:700;border-color:#c7d7ff;cursor:default;';
+
+        document.getElementById('fullLoadTxt').textContent = 'กำลังโหลดข้อมูลร้านค้า...';
+        document.getElementById('fullLoad').classList.add('show');
+
+        // ดึงข้อมูลร้านจาก Supabase
+        sbGet('shops', '?phone=eq.' + encodeURIComponent(savedPhone) + '&select=*')
+            .then(function(rows) {
+                document.getElementById('fullLoad').classList.remove('show');
+                if (rows && rows.length > 0) {
+                    isEditMode = true;
+                    shopId = rows[0].id;
+                    fillShopForm(rows[0]);
+                    insertModeBanner(true, rows[0].name, savedPhone);
+                } else {
+                    isEditMode = false;
+                    insertModeBanner(false, '', savedPhone);
+                }
+                syncBtn();
+            })
+            .catch(function(err) {
+                document.getElementById('fullLoad').classList.remove('show');
+                console.error(err);
+                insertModeBanner(false, '', savedPhone);
+                syncBtn();
+            });
+    }
+
+    // File input events
+    document.getElementById('fCam').addEventListener('change', function(e) { if(e.target.files[0]) handleFileChosen(e.target.files[0]); });
+    document.getElementById('fGal').addEventListener('change', function(e) { if(e.target.files[0]) handleFileChosen(e.target.files[0]); });
+});
+
+/* ══════════════════════════════════════════════════════
+   BANNER โหมด
+══════════════════════════════════════════════════════ */
+function insertModeBanner(isEdit, shopName, phone) {
+    var existing = document.getElementById('modeBanner');
+    if (existing) existing.remove();
+    var banner = document.createElement('div');
+    banner.id = 'modeBanner';
+    if (isEdit) {
+        banner.style.cssText = 'margin:0 16px 14px;background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1.5px solid #a5d6a7;border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:slideUp 0.3s ease;';
+        banner.innerHTML = '<div style="font-size:1.6rem;">✏️</div><div><div style="font-weight:700;color:#2e7d32;font-size:0.92rem;">โหมดแก้ไขข้อมูลร้าน</div><div style="font-size:0.78rem;color:#388e3c;">' + shopName + ' · ' + phone + '</div></div>';
+    } else {
+        banner.style.cssText = 'margin:0 16px 14px;background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1.5px solid #ffc107;border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:slideUp 0.3s ease;';
+        banner.innerHTML = '<div style="font-size:1.6rem;">🆕</div><div><div style="font-weight:700;color:#856404;font-size:0.92rem;">สมัครแม่ค้าใหม่</div><div style="font-size:0.78rem;color:#997a00;">เบอร์ ' + phone + ' · กรอกข้อมูลให้ครบแล้วกดบันทึก</div></div>';
+    }
+    var stepBar = document.querySelector('.step-bar');
+    stepBar.parentNode.insertBefore(banner, stepBar.nextSibling);
+}
+
+/* ══════════════════════════════════════════════════════
+   FILL FORM (โหมดแก้ไข)
+══════════════════════════════════════════════════════ */
+async function fillShopForm(d) {
+    if (d.name)    document.getElementById('inName').value    = d.name;
+    if (d.address) document.getElementById('inAddress').value = d.address;
+
+    if (d.lat && d.lng) {
+        savedLat = d.lat; savedLng = d.lng;
+        document.getElementById('hidLat').value = d.lat;
+        document.getElementById('hidLng').value = d.lng;
+        document.getElementById('dLat').textContent = parseFloat(d.lat).toFixed(6);
+        document.getElementById('dLng').textContent = parseFloat(d.lng).toFixed(6);
+        document.getElementById('dAcc').textContent = 'โหลดจากข้อมูลที่บันทึกไว้';
+        document.getElementById('gpsOK').classList.add('show');
+        showMap(d.lat, d.lng, 100);
+    }
+    if (d.photo) {
+        shopPhoto = d.photo;
+        document.getElementById('shopPhotoUrl').value = d.photo;
+        var wrap = document.getElementById('shopWrap');
+        wrap.style.display = 'block';
+        document.getElementById('shopPreview').src = d.photo;
+        document.getElementById('shopDone').classList.add('show');
+    }
+
+    // โหลดสินค้าจาก products table
+    try {
+        var products = await sbGet('products', '?shop_id=eq.' + d.id + '&order=sort_order');
+        for (var i = 0; i < Math.min(products.length, N); i++) {
+            prods[i].name  = products[i].name  || '';
+            prods[i].price = products[i].price || '';
+            prods[i].qty   = products[i].qty   || '';
+            prods[i].img   = products[i].img   || '';
+        }
+        renderProdGrid();
+    } catch(e) { console.error('โหลดสินค้าไม่ได้:', e); }
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER PRODUCT GRID
+══════════════════════════════════════════════════════ */
+function renderProdGrid() {
+    var html = '';
+    for (var i = 0; i < N; i++) {
+        var p      = prods[i];
+        var filled = !!(p.name || p.img);
+        html += '<div class="prod-card ' + (filled?'filled':'') + '" id="pc_' + i + '">' +
+            '<div class="prod-img-wrap" onclick="openSheet(\'prod\',' + i + ')">' +
+                '<div class="card-num">' + (i+1) + '</div>' +
+                (p.img
+                    ? '<img src="' + p.img + '" alt="สินค้า' + (i+1) + '" onerror="this.src=\'\'">' +
+                      '<button class="edit-img-btn show"><i class="bi bi-pencil-fill"></i> แก้ไข</button>'
+                    : '<div class="prod-empty-ph"><i class="bi bi-camera-fill"></i><span>กดเพื่อถ่ายรูป<br>สินค้า</span></div>') +
+                '<div class="card-spin" id="cs_' + i + '"></div>' +
+                '<div class="card-ok" id="co_' + i + '"><i class="bi bi-check-circle-fill"></i> ✓</div>' +
+                '<div class="prod-hover-ov"><i class="bi bi-camera-fill"></i><span>เปลี่ยนรูป</span></div>' +
+            '</div>' +
+            '<div class="prod-form">' +
+                '<input class="pname" id="pName_' + i + '" placeholder="ชื่อสินค้า" value="' + esc(p.name) + '" oninput="prodSync(' + i + ')">' +
+                '<div class="price-row"><span class="psym">฿</span>' +
+                '<input class="pprice" id="pPrice_' + i + '" placeholder="ราคา" type="number" min="0" value="' + esc(p.price) + '" oninput="prodSync(' + i + ')"></div>' +
+                '<div class="qty-row"><span class="qlbl">จำนวน</span>' +
+                '<input class="pqty" id="pQty_' + i + '" placeholder="ชิ้น" type="number" min="0" value="' + esc(p.qty) + '" oninput="prodSync(' + i + ')"></div>' +
+            '</div></div>';
+    }
+    document.getElementById('prodGrid').innerHTML = html;
+}
+
+function prodSync(i) {
+    prods[i].name  = document.getElementById('pName_'  + i).value;
+    prods[i].price = document.getElementById('pPrice_' + i).value;
+    prods[i].qty   = document.getElementById('pQty_'   + i).value;
+    var filled = !!(prods[i].name || prods[i].img);
+    document.getElementById('pc_' + i).className = 'prod-card ' + (filled?'filled':'');
+    syncBtn();
+}
+
+/* ══════════════════════════════════════════════════════
+   GPS
+══════════════════════════════════════════════════════ */
+function startGPS() {
+    if (!navigator.geolocation) { setGPSState('err','เบราว์เซอร์ไม่รองรับ GPS',''); return; }
+    var btn = document.getElementById('gpsBtn');
+    btn.disabled = true;
+    document.getElementById('gpsSpin').style.display = 'block';
+    document.getElementById('gpsIcon').style.display = 'none';
+    document.getElementById('gpsBtnLabel').textContent = 'กำลังรับพิกัด...';
+    setGPSState('info','','');
+
+    if (gpsWatch) navigator.geolocation.clearWatch(gpsWatch);
+    gpsWatch = navigator.geolocation.watchPosition(
+        function(pos) {
+            navigator.geolocation.clearWatch(gpsWatch);
+            var lat = pos.coords.latitude;
+            var lng = pos.coords.longitude;
+            var acc = pos.coords.accuracy;
+            savedLat = String(lat); savedLng = String(lng);
+            document.getElementById('hidLat').value = savedLat;
+            document.getElementById('hidLng').value = savedLng;
+            document.getElementById('dLat').textContent = lat.toFixed(6);
+            document.getElementById('dLng').textContent = lng.toFixed(6);
+            document.getElementById('dAcc').textContent = 'ความแม่นยำ ±' + Math.round(acc) + ' เมตร';
+            setGPSState('ok','','');
+            showMap(lat, lng, acc);
+            btn.disabled = false;
+            document.getElementById('gpsSpin').style.display = 'none';
+            document.getElementById('gpsIcon').style.display = '';
+            document.getElementById('gpsBtnLabel').textContent = 'รับพิกัดใหม่อีกครั้ง';
+            syncBtn();
+        },
+        function(err) {
+            btn.disabled = false;
+            document.getElementById('gpsSpin').style.display = 'none';
+            document.getElementById('gpsIcon').style.display = '';
+            document.getElementById('gpsBtnLabel').textContent = 'กดเพื่อเก็บพิกัดจากมือถือ';
+            var t = 'ไม่สามารถรับพิกัดได้', d = '';
+            if (err.code===1){ t='⚠️ ยังไม่ได้อนุญาต GPS'; d='ไปที่ Settings → เบราว์เซอร์ → ตำแหน่ง → อนุญาต'; }
+            if (err.code===2){ t='ไม่พบสัญญาณ GPS'; d='ลองออกไปบริเวณโล่งๆ'; }
+            if (err.code===3){ t='GPS ช้าเกินไป'; d='กรุณาลองใหม่'; }
+            setGPSState('err', t, d);
+        },
+        { enableHighAccuracy:true, timeout:20000, maximumAge:0 }
+    );
+}
+function setGPSState(s, t, d) {
+    ['gpsInfo','gpsOK','gpsErr'].forEach(function(id){ document.getElementById(id).classList.remove('show'); });
+    if (s==='info') document.getElementById('gpsInfo').classList.add('show');
+    if (s==='ok')   document.getElementById('gpsOK').classList.add('show');
+    if (s==='err')  {
+        document.getElementById('gpsErr').classList.add('show');
+        if (t) document.getElementById('gpsErrT').textContent = t;
+        if (d) document.getElementById('gpsErrD').textContent = d;
+    }
+}
+function showMap(lat, lng, acc) {
+    var box = document.getElementById('mapBox');
+    var img = document.getElementById('mapImg');
+    var z   = acc < 50 ? 17 : (acc < 200 ? 16 : 15);
+    img.src = 'https://staticmap.openstreetmap.de/staticmap.php?center=' + lat + ',' + lng +
+              '&zoom=' + z + '&size=600x250&maptype=osm&markers=' + lat + ',' + lng + ',red';
+    box.style.display = 'block';
+}
+
+/* ══════════════════════════════════════════════════════
+   BOTTOM SHEET (เลือกกล้อง/แกลเลอรี)
+══════════════════════════════════════════════════════ */
+function openSheet(mode, prodIdx) {
+    sheetMode    = mode;
+    sheetProdIdx = (prodIdx !== undefined) ? prodIdx : -1;
+    document.getElementById('sheetTitle').textContent = mode === 'shop' ? 'เลือกรูปหน้าร้าน' : 'เลือกรูปสินค้า ' + (sheetProdIdx+1);
+    document.getElementById('backdrop').classList.add('show');
+    document.getElementById('bottomSheet').classList.add('open');
+}
+function closeSheet() {
+    document.getElementById('backdrop').classList.remove('show');
+    document.getElementById('bottomSheet').classList.remove('open');
+}
+function sheetPickCamera() {
+    closeSheet();
+    document.getElementById('fCam').value = '';
+    document.getElementById('fCam').click();
+}
+function sheetPickGallery() {
+    closeSheet();
+    document.getElementById('fGal').value = '';
+    document.getElementById('fGal').click();
+}
+function handleFileChosen(file) {
+    if (sheetMode === 'shop') uploadShopPhoto(file);
+    else if (sheetMode === 'prod' && sheetProdIdx >= 0) uploadProdPhoto(file, sheetProdIdx);
+}
+
+/* ══════════════════════════════════════════════════════
+   CLOUDINARY UPLOAD
+══════════════════════════════════════════════════════ */
+function uploadToCloudinary(file, onOk, onErr) {
+    compressImage(file, function(blob) {
+        var fd = new FormData();
+        fd.append('file', blob, 'photo.jpg');
+        fd.append('upload_preset', PRESET);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + CLOUD + '/image/upload', true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    var d = JSON.parse(xhr.responseText);
+                    var url = d.secure_url || d.url || '';
+                    if (url) onOk(url); else onErr('ไม่พบ URL');
+                } catch(e) { onErr('parse: ' + e.message); }
+            } else { onErr('HTTP ' + xhr.status); }
+        };
+        xhr.onerror = function() { onErr('เชื่อมต่อ Cloudinary ไม่ได้'); };
+        xhr.send(fd);
+    }, onErr);
+}
+function compressImage(file, onBlob, onErr) {
+    var r = new FileReader();
+    r.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var MAX=1200, w=img.width, h=img.height;
+            if(w>MAX||h>MAX){ if(w>=h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;} }
+            var c=document.createElement('canvas'); c.width=w; c.height=h;
+            c.getContext('2d').drawImage(img,0,0,w,h);
+            c.toBlob(function(b){ if(b) onBlob(b); else onErr('compress fail'); },'image/jpeg',0.85);
+        };
+        img.onerror = function(){ onErr('load image fail'); };
+        img.src = e.target.result;
+    };
+    r.onerror = function(){ onErr('read fail'); };
+    r.readAsDataURL(file);
+}
+
+function uploadShopPhoto(file) {
+    var overlay = document.getElementById('shopOverlay');
+    var wrap    = document.getElementById('shopWrap');
+    var preview = document.getElementById('shopPreview');
+    wrap.style.display = 'block';
+    overlay.style.display = 'flex';
+    var reader = new FileReader();
+    reader.onload = function(e){ preview.src = e.target.result; };
+    reader.readAsDataURL(file);
+    uploadToCloudinary(file,
+        function(url) {
+            shopPhoto = url;
+            document.getElementById('shopPhotoUrl').value = url;
+            overlay.style.display = 'none';
+            document.getElementById('shopDone').classList.add('show');
+            syncBtn();
+        },
+        function(err) {
+            overlay.style.display = 'none';
+            alert('อัปโหลดรูปหน้าร้านไม่สำเร็จ: ' + err);
+        }
+    );
+}
+function uploadProdPhoto(file, idx) {
+    var spin = document.getElementById('cs_' + idx);
+    var ok   = document.getElementById('co_' + idx);
+    if (spin) spin.style.display = 'block';
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var card = document.getElementById('pc_' + idx);
+        var imgEl = card.querySelector('.prod-img-wrap img');
+        if (!imgEl) {
+            var wrap = card.querySelector('.prod-img-wrap');
+            wrap.innerHTML = '<img src="' + e.target.result + '" alt="สินค้า"><div class="card-num">' + (idx+1) + '</div>' +
+                '<button class="edit-img-btn show" onclick="openSheet(\'prod\',' + idx + ')"><i class="bi bi-pencil-fill"></i> แก้ไข</button>' +
+                '<div class="card-spin" id="cs_' + idx + '"></div>' +
+                '<div class="card-ok" id="co_' + idx + '"><i class="bi bi-check-circle-fill"></i> ✓</div>' +
+                '<div class="prod-hover-ov"><i class="bi bi-camera-fill"></i><span>เปลี่ยนรูป</span></div>';
+            wrap.onclick = function(){ openSheet('prod', idx); };
+        } else {
+            imgEl.src = e.target.result;
+        }
+    };
+    reader.readAsDataURL(file);
+
+    uploadToCloudinary(file,
+        function(url) {
+            prods[idx].img = url;
+            if (document.getElementById('cs_' + idx)) document.getElementById('cs_' + idx).style.display = 'none';
+            if (document.getElementById('co_' + idx)) document.getElementById('co_' + idx).classList.add('show');
+            document.getElementById('pc_' + idx).classList.add('filled');
+            syncBtn();
+        },
+        function(err) {
+            if (document.getElementById('cs_' + idx)) document.getElementById('cs_' + idx).style.display = 'none';
+            alert('อัปโหลดรูปสินค้าไม่สำเร็จ: ' + err);
+        }
+    );
+}
+
+/* ══════════════════════════════════════════════════════
+   SYNC BUTTON
+══════════════════════════════════════════════════════ */
+function syncBtn() {
+    var phone   = document.getElementById('inPhone').value.trim();
+    var name    = document.getElementById('inName').value.trim();
+    var address = document.getElementById('inAddress').value.trim();
+    var ok      = phone && name && address;
+
+    var btn = document.getElementById('saveBtn');
+    var txt = document.getElementById('saveTxt');
+    btn.disabled = !ok;
+    if (!ok)                txt.textContent = 'กรอกชื่อ เบอร์ และบ้านเลขที่ก่อน';
+    else if (!savedLat && !shopPhoto) txt.textContent = 'บันทึกข้อมูลร้านค้า (ยังไม่มี GPS / รูป)';
+    else if (!savedLat)     txt.textContent = 'บันทึกข้อมูลร้านค้า (ยังไม่มีพิกัด GPS)';
+    else if (!shopPhoto)    txt.textContent = 'บันทึกข้อมูลร้านค้า (ยังไม่มีรูปหน้าร้าน)';
+    else                    txt.textContent = 'บันทึกข้อมูลร้านค้า ✓';
+
+    document.getElementById('s2').className = 'step ' + (ok?'done':'active');
+    document.getElementById('s3').className = 'step ' + (savedLat?'done':(ok?'active':''));
+    document.getElementById('s4').className = 'step ' + (shopPhoto?'done':(savedLat?'active':''));
+}
+
+/* ══════════════════════════════════════════════════════
+   SAVE — บันทึกลง Supabase
+══════════════════════════════════════════════════════ */
+async function doSave() {
+    var phone   = document.getElementById('inPhone').value.trim();
+    var name    = document.getElementById('inName').value.trim();
+    var address = document.getElementById('inAddress').value.trim();
+    if (!phone||!name||!address) { alert('กรุณากรอกข้อมูลให้ครบ'); return; }
+
+    // sync prod data จาก input
+    for (var i = 0; i < N; i++) {
+        var n = document.getElementById('pName_'  + i);
+        var p = document.getElementById('pPrice_' + i);
+        var q = document.getElementById('pQty_'   + i);
+        if(n) prods[i].name  = n.value;
+        if(p) prods[i].price = p.value;
+        if(q) prods[i].qty   = q.value;
+    }
+
+    document.getElementById('fullLoadTxt').textContent = 'กำลังบันทึกข้อมูลร้านค้า...';
+    document.getElementById('fullLoad').classList.add('show');
+    document.getElementById('saveBtn').disabled = true;
+
+    try {
+        var shopPayload = {
+            name:    name,
+            phone:   phone,
+            address: address,
+            lat:     savedLat || null,
+            lng:     savedLng || null,
+            photo:   shopPhoto || null
+        };
+
+        console.log('📦 shopPayload:', JSON.stringify(shopPayload));
+        document.getElementById('fullLoadTxt').textContent = 'กำลังบันทึกข้อมูลร้านค้า...';
+
+        var currentShopId;
+
+        if (isEditMode && shopId) {
+            document.getElementById('fullLoadTxt').textContent = 'กำลังอัปเดตร้านค้า...';
+            await sbPatch('shops', '?id=eq.' + shopId, shopPayload);
+            currentShopId = shopId;
+            document.getElementById('fullLoadTxt').textContent = 'กำลังลบสินค้าเดิม...';
+            await sbDelete('products', '?shop_id=eq.' + shopId);
+        } else {
+            document.getElementById('fullLoadTxt').textContent = 'กำลังสร้างร้านค้าใหม่...';
+            var created = await sbPost('shops', shopPayload);
+            console.log('✅ shops created:', JSON.stringify(created));
+            currentShopId = Array.isArray(created) ? created[0].id : created.id;
+            if (!currentShopId) throw new Error('ไม่ได้รับ id จาก Supabase: ' + JSON.stringify(created));
+            shopId = currentShopId;
+        }
+
+        console.log('🏪 currentShopId:', currentShopId);
+
+        var validProds = prods
+            .map(function(p, idx) { return { shop_id: currentShopId, name: p.name, price: parseFloat(p.price)||0, qty: parseInt(p.qty)||0, img: p.img||null, sort_order: idx }; })
+            .filter(function(p) { return p.name && p.name.trim(); });
+
+        console.log('🛒 validProds:', JSON.stringify(validProds));
+
+        if (validProds.length > 0) {
+            document.getElementById('fullLoadTxt').textContent = 'กำลังบันทึกสินค้า ' + validProds.length + ' รายการ...';
+            await sbPost('products', validProds);
+        }
+
+        document.getElementById('fullLoad').classList.remove('show');
+        try { localStorage.removeItem('shopPhone'); } catch(e){}
+        alert(isEditMode ? '✅ อัปเดตข้อมูลร้านค้าสำเร็จ!' : '✅ สมัครแม่ค้าสำเร็จ!\nขอบคุณที่ร่วมเป็นแม่ค้ากับเรา 🎉');
+        window.location.href = 'Index.html';
+
+    } catch(err) {
+        document.getElementById('fullLoad').classList.remove('show');
+        document.getElementById('saveBtn').disabled = false;
+        console.error('❌ doSave error:', err);
+        alert('❌ บันทึกไม่สำเร็จ\n\nสาเหตุ: ' + (err.message||String(err)) + '\n\n(เปิด DevTools → Console เพื่อดูรายละเอียด)');
+    }
+}
+
+/* ══════════════════════════════════════════════════════
+   NAVIGATION & HELPERS
+══════════════════════════════════════════════════════ */
+function goBack() { window.location.href = 'Index.html'; }
+
+function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

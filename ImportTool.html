@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Import Google Sheet → Supabase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --orange:#ff9800; --dark:#1a1a2e; --green:#22c55e; --red:#ef4444; }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { background:#f4f6f9; font-family:'Kanit',sans-serif; padding:20px; }
+
+        .card {
+            background:white; border-radius:20px; padding:22px;
+            box-shadow:0 4px 15px rgba(0,0,0,0.07); margin-bottom:16px;
+        }
+        .card-title {
+            font-weight:700; font-size:1rem; color:var(--dark);
+            display:flex; align-items:center; gap:8px;
+            padding-bottom:12px; border-bottom:1px solid #f0f0f5; margin-bottom:16px;
+        }
+        .card-title .icon { font-size:1.3rem; }
+
+        /* Status dot */
+        .dot { width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:6px; }
+        .dot.ok     { background:var(--green); }
+        .dot.err    { background:var(--red); }
+        .dot.wait   { background:#fbbf24; animation:pulse 1s infinite; }
+        .dot.idle   { background:#ccc; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        /* Buttons */
+        .btn {
+            padding:14px 24px; border:none; border-radius:14px;
+            font-family:'Kanit',sans-serif; font-weight:700; font-size:1rem;
+            cursor:pointer; display:inline-flex; align-items:center; gap:8px;
+            transition:0.2s; width:100%; justify-content:center;
+        }
+        .btn:active { transform:scale(0.98); }
+        .btn:disabled { background:#d1d5db; color:#9ca3af; cursor:not-allowed; transform:none; }
+        .btn-orange { background:linear-gradient(135deg,#ff9800,#f57c00); color:white; box-shadow:0 4px 14px rgba(255,152,0,0.35); }
+        .btn-green  { background:linear-gradient(135deg,#22c55e,#16a34a); color:white; box-shadow:0 4px 14px rgba(34,197,94,0.3); }
+        .btn-red    { background:linear-gradient(135deg,#ef4444,#dc2626); color:white; box-shadow:0 4px 14px rgba(239,68,68,0.3); }
+        .btn-gray   { background:#f1f3f5; color:#555; }
+
+        /* Progress */
+        .progress-wrap { background:#f0f0f5; border-radius:10px; height:10px; overflow:hidden; margin:8px 0; }
+        .progress-bar  { height:100%; background:linear-gradient(90deg,#ff9800,#22c55e); border-radius:10px; transition:width 0.4s; }
+
+        /* Log */
+        #logBox {
+            background:#0d1117; color:#e6edf3; border-radius:14px;
+            padding:16px; font-family:monospace; font-size:0.82rem;
+            max-height:320px; overflow-y:auto; line-height:1.7;
+        }
+        .log-ok   { color:#3fb950; }
+        .log-err  { color:#f85149; }
+        .log-warn { color:#d29922; }
+        .log-info { color:#79c0ff; }
+
+        /* Preview table */
+        .preview-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+        .preview-table th { background:#f8f9fa; padding:8px 10px; text-align:left; font-weight:600; color:#555; border-bottom:2px solid #e9ecef; }
+        .preview-table td { padding:8px 10px; border-bottom:1px solid #f0f0f5; color:#333; }
+        .preview-table tr:hover td { background:#fffbeb; }
+        .tag { display:inline-block; padding:2px 8px; border-radius:8px; font-size:0.72rem; font-weight:700; }
+        .tag-ok  { background:#dcfce7; color:#16a34a; }
+        .tag-new { background:#dbeafe; color:#1d4ed8; }
+        .tag-null{ background:#fee2e2; color:#dc2626; }
+
+        /* Stats */
+        .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+        .stat-box { background:#f8f9fa; border-radius:14px; padding:14px; text-align:center; }
+        .stat-num { font-size:1.8rem; font-weight:700; color:var(--dark); }
+        .stat-lbl { font-size:0.75rem; color:#888; margin-top:2px; }
+
+        .sep { height:1px; background:#f0f0f5; margin:12px 0; }
+        input[type=text] { width:100%; border:2px solid #e9ecef; border-radius:12px; padding:11px 14px; font-family:'Kanit',sans-serif; font-size:0.95rem; outline:none; }
+        input[type=text]:focus { border-color:var(--orange); }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div style="background:linear-gradient(135deg,#1a1a2e,#2d2d5e);color:white;border-radius:20px;padding:20px 22px;margin-bottom:16px;">
+    <div style="font-size:1.4rem;margin-bottom:2px;">📊 → 🗄️</div>
+    <div style="font-weight:700;font-size:1.1rem;color:#f0e68c;">Import Tool</div>
+    <div style="font-size:0.8rem;opacity:0.7;margin-top:3px;">นำเข้าข้อมูล Google Sheet → Supabase</div>
+</div>
+
+<!-- Step 1: Sheet ID -->
+<div class="card">
+    <div class="card-title"><span class="icon">1️⃣</span> ตั้งค่า Google Sheet</div>
+    <div style="font-size:0.82rem;color:#888;margin-bottom:8px;">Sheet ID (จาก URL)</div>
+    <input type="text" id="sheetId" value="1JrD6UtW1QAcSx37mGuCUlfsa4IlRK9vloMs02CXtqOc" placeholder="Sheet ID">
+    <div style="font-size:0.78rem;color:#aaa;margin-top:6px;">
+        ชื่อ Sheet: <strong>shop</strong> (คอลัมน์ A=ชื่อ B=บ้านเลขที่ C=เบอร์ D=Lat E=Lng F=รูปร้าน G+=สินค้า)
+    </div>
+</div>
+
+<!-- Step 2: Connection test -->
+<div class="card">
+    <div class="card-title"><span class="icon">2️⃣</span> ตรวจสอบการเชื่อมต่อ</div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <div style="flex:1;background:#f8f9fa;border-radius:12px;padding:12px;">
+            <div style="font-size:0.75rem;color:#888;margin-bottom:4px;">Google Sheet</div>
+            <div id="gsStatus"><span class="dot idle"></span><span style="font-size:0.85rem;color:#aaa;">ยังไม่ได้ทดสอบ</span></div>
+        </div>
+        <div style="flex:1;background:#f8f9fa;border-radius:12px;padding:12px;">
+            <div style="font-size:0.75rem;color:#888;margin-bottom:4px;">Supabase</div>
+            <div id="sbStatus"><span class="dot idle"></span><span style="font-size:0.85rem;color:#aaa;">ยังไม่ได้ทดสอบ</span></div>
+        </div>
+    </div>
+    <button class="btn btn-orange" onclick="testConnections()">🔌 ทดสอบการเชื่อมต่อ</button>
+</div>
+
+<!-- Step 3: Preview -->
+<div class="card">
+    <div class="card-title"><span class="icon">3️⃣</span> ดูตัวอย่างข้อมูล</div>
+    <div id="previewArea" style="color:#aaa;font-size:0.85rem;text-align:center;padding:20px 0;">
+        กดทดสอบการเชื่อมต่อก่อน แล้วกดโหลดตัวอย่าง
+    </div>
+    <div id="previewStats" style="display:none;" class="stat-grid" style="margin-bottom:12px;"></div>
+    <div style="margin-top:12px;display:none;" id="loadPreviewBtnWrap">
+        <button class="btn btn-gray" onclick="loadPreview()">🔍 โหลดตัวอย่างข้อมูล</button>
+    </div>
+</div>
+
+<!-- Step 4: Import -->
+<div class="card">
+    <div class="card-title"><span class="icon">4️⃣</span> Import ข้อมูล</div>
+
+    <div style="background:#fff8e1;border:1.5px solid #ffc107;border-radius:12px;padding:12px;margin-bottom:14px;font-size:0.82rem;color:#856404;">
+        ⚠️ <strong>ก่อน Import:</strong> ระบบจะ <strong>ลบข้อมูลเก่าใน shops และ products ทั้งหมด</strong> แล้วเพิ่มใหม่จาก Google Sheet
+    </div>
+
+    <div id="progressWrap" style="display:none;margin-bottom:12px;">
+        <div style="font-size:0.82rem;color:#555;margin-bottom:4px;" id="progressTxt">กำลังดำเนินการ...</div>
+        <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <button class="btn btn-green" id="importBtn" onclick="startImport()" disabled>
+            ⬆️ Import ทั้งหมด
+        </button>
+        <button class="btn btn-red" id="clearBtn" onclick="clearAll()" disabled>
+            🗑️ ล้างข้อมูลเก่า
+        </button>
+    </div>
+    <button class="btn btn-gray" onclick="document.getElementById('logBox').innerHTML='';addLog(\'ล้าง log แล้ว\',\'info\')">
+        🧹 ล้าง Log
+    </button>
+</div>
+
+<!-- Log -->
+<div class="card">
+    <div class="card-title"><span class="icon">📋</span> Log การทำงาน</div>
+    <div id="logBox"><span class="log-info">รอคำสั่ง...</span></div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════════════════ */
+var SB_URL = 'https://tkjvhcqkfddcbjcdpfye.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRranZoY3FrZmRkY2JqY2RwZnllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMjgzMTcsImV4cCI6MjA4ODYwNDMxN30.JgYngweL4ypH4rIGzuNITT8ibA2B_xW3r9LL3_hqSG4';
+
+/* ══════════════════════════════════════════════════════
+   SUPABASE HELPERS
+══════════════════════════════════════════════════════ */
+async function sbGet(table, q) {
+    var res = await fetch(SB_URL+'/rest/v1/'+table+(q||''), {
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+async function sbPost(table, body) {
+    var res = await fetch(SB_URL+'/rest/v1/'+table, {
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,
+                 'Content-Type':'application/json','Prefer':'return=representation'},
+        body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+async function sbDelete(table, q) {
+    var res = await fetch(SB_URL+'/rest/v1/'+table+(q||''), {
+        method:'DELETE',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    if(!res.ok) throw new Error(await res.text());
+    return true;
+}
+
+/* ══════════════════════════════════════════════════════
+   GOOGLE SHEET HELPERS
+   ดึงผ่าน CSV export (ง่ายที่สุด ไม่ต้องใช้ API key)
+══════════════════════════════════════════════════════ */
+async function fetchSheetCSV(sheetId, sheetName) {
+    // gid ของแต่ละ sheet — ดึงผ่าน CSV export URL
+    var url = 'https://docs.google.com/spreadsheets/d/' + sheetId +
+              '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(sheetName);
+    var res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' ดึง sheet "' + sheetName + '" ไม่ได้');
+    return res.text();
+}
+
+function parseCSV(csv) {
+    var lines = csv.trim().split('\n');
+    return lines.map(function(line) {
+        // parse CSV ที่มี quoted fields
+        var result = [], cur = '', inQ = false;
+        for (var i = 0; i < line.length; i++) {
+            var c = line[i];
+            if (c === '"') {
+                if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+                else inQ = !inQ;
+            } else if (c === ',' && !inQ) {
+                result.push(cur.trim()); cur = '';
+            } else { cur += c; }
+        }
+        result.push(cur.trim());
+        return result;
+    });
+}
+
+/* ══════════════════════════════════════════════════════
+   LOG
+══════════════════════════════════════════════════════ */
+function addLog(msg, type) {
+    var box = document.getElementById('logBox');
+    var cls = 'log-' + (type||'info');
+    var now = new Date().toLocaleTimeString('th-TH');
+    box.innerHTML += '<div class="'+cls+'">['+now+'] '+msg+'</div>';
+    box.scrollTop = box.scrollHeight;
+}
+function setProgress(pct, txt) {
+    document.getElementById('progressWrap').style.display = 'block';
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressTxt').textContent = txt || '';
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 2: ทดสอบการเชื่อมต่อ
+══════════════════════════════════════════════════════ */
+async function testConnections() {
+    addLog('เริ่มทดสอบการเชื่อมต่อ...', 'info');
+
+    // Test Google Sheet
+    document.getElementById('gsStatus').innerHTML = '<span class="dot wait"></span><span style="font-size:0.85rem">กำลังทดสอบ...</span>';
+    var sheetId = document.getElementById('sheetId').value.trim();
+    try {
+        var csv = await fetchSheetCSV(sheetId, 'shop');
+        var rows = parseCSV(csv);
+        addLog('✅ Google Sheet: โหลดได้ ' + (rows.length-1) + ' แถว (ไม่นับหัว)', 'ok');
+        document.getElementById('gsStatus').innerHTML = '<span class="dot ok"></span><span style="font-size:0.85rem;color:#16a34a;">เชื่อมต่อได้ (' + (rows.length-1) + ' ร้าน)</span>';
+    } catch(e) {
+        addLog('❌ Google Sheet: ' + e.message, 'err');
+        document.getElementById('gsStatus').innerHTML = '<span class="dot err"></span><span style="font-size:0.85rem;color:#dc2626;">'+e.message+'</span>';
+        return;
+    }
+
+    // Test Supabase
+    document.getElementById('sbStatus').innerHTML = '<span class="dot wait"></span><span style="font-size:0.85rem">กำลังทดสอบ...</span>';
+    try {
+        var shops = await sbGet('shops', '?select=id&limit=1');
+        addLog('✅ Supabase: เชื่อมต่อได้', 'ok');
+        document.getElementById('sbStatus').innerHTML = '<span class="dot ok"></span><span style="font-size:0.85rem;color:#16a34a;">เชื่อมต่อได้</span>';
+    } catch(e) {
+        addLog('❌ Supabase: ' + e.message, 'err');
+        document.getElementById('sbStatus').innerHTML = '<span class="dot err"></span><span style="font-size:0.85rem;color:#dc2626;">'+e.message+'</span>';
+        return;
+    }
+
+    // เปิดปุ่ม
+    document.getElementById('importBtn').disabled = false;
+    document.getElementById('clearBtn').disabled  = false;
+    document.getElementById('loadPreviewBtnWrap').style.display = 'block';
+    document.getElementById('previewArea').textContent = 'กดปุ่ม "โหลดตัวอย่างข้อมูล" เพื่อดูข้อมูลก่อน import';
+    addLog('✅ พร้อม import แล้ว!', 'ok');
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 3: Preview
+══════════════════════════════════════════════════════ */
+async function loadPreview() {
+    addLog('กำลังโหลดตัวอย่าง...', 'info');
+    var sheetId = document.getElementById('sheetId').value.trim();
+    try {
+        var csv  = await fetchSheetCSV(sheetId, 'shop');
+        var rows = parseCSV(csv);
+        var shops = parseShopRows(rows);
+
+        var totalProds = shops.reduce(function(s,sh){ return s + sh.products.length; }, 0);
+
+        document.getElementById('previewStats').style.display = 'grid';
+        document.getElementById('previewStats').innerHTML =
+            '<div class="stat-box"><div class="stat-num">' + shops.length + '</div><div class="stat-lbl">ร้านค้า</div></div>' +
+            '<div class="stat-box"><div class="stat-num">' + totalProds + '</div><div class="stat-lbl">สินค้า</div></div>' +
+            '<div class="stat-box"><div class="stat-num">' + rows.length + '</div><div class="stat-lbl">แถวทั้งหมด</div></div>';
+
+        // สร้างตาราง preview
+        var html = '<div style="overflow-x:auto;margin-top:12px;"><table class="preview-table">' +
+            '<thead><tr><th>#</th><th>ชื่อร้าน</th><th>เบอร์</th><th>ที่อยู่</th><th>GPS</th><th>รูปร้าน</th><th>สินค้า</th></tr></thead><tbody>';
+        shops.slice(0,10).forEach(function(sh, i) {
+            var hasGps  = sh.lat && sh.lng;
+            var hasPhoto = sh.photo && sh.photo.length > 5;
+            html += '<tr>' +
+                '<td>' + (i+1) + '</td>' +
+                '<td><strong>' + esc(sh.name) + '</strong></td>' +
+                '<td>' + esc(sh.phone) + '</td>' +
+                '<td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(sh.address) + '</td>' +
+                '<td>' + (hasGps ? '<span class="tag tag-ok">✓ มี</span>' : '<span class="tag tag-null">ไม่มี</span>') + '</td>' +
+                '<td>' + (hasPhoto ? '<span class="tag tag-ok">✓ มี</span>' : '<span class="tag tag-null">ไม่มี</span>') + '</td>' +
+                '<td><span class="tag tag-new">' + sh.products.length + ' รายการ</span></td>' +
+                '</tr>';
+        });
+        if (shops.length > 10) html += '<tr><td colspan="7" style="text-align:center;color:#aaa;">...และอีก ' + (shops.length-10) + ' ร้าน</td></tr>';
+        html += '</tbody></table></div>';
+        document.getElementById('previewArea').innerHTML = html;
+        addLog('✅ โหลดตัวอย่างสำเร็จ: ' + shops.length + ' ร้าน, ' + totalProds + ' สินค้า', 'ok');
+    } catch(e) {
+        addLog('❌ ' + e.message, 'err');
+    }
+}
+
+/* ══════════════════════════════════════════════════════
+   PARSE SHOP ROWS
+   โครงสร้าง: A=ชื่อ B=บ้านเลขที่ C=เบอร์ D=Lat E=Lng F=รูปร้าน
+   G,H,I,J = ชื่อสินค้า1, ราคา1, จำนวน1, รูป1
+   K,L,M,N = สินค้า2 ...  ต่อเนื่องทีละ 4 คอลัมน์
+══════════════════════════════════════════════════════ */
+function parseShopRows(rows) {
+    // rows[0] = header, rows[1..] = data
+    var shops = [];
+    for (var r = 1; r < rows.length; r++) {
+        var row = rows[r];
+        var name    = (row[0]||'').trim();
+        var address = (row[1]||'').trim();
+        var phone   = (row[2]||'').trim();
+        var lat     = (row[3]||'').trim();
+        var lng     = (row[4]||'').trim();
+        var photo   = (row[5]||'').trim();
+
+        if (!name && !phone) continue; // ข้ามแถวว่าง
+
+        // parse สินค้า ทีละ 4 คอลัมน์ เริ่มจาก index 6
+        var products = [];
+        for (var c = 6; c < row.length; c += 4) {
+            var pName  = (row[c]   || '').trim();
+            var pPrice = (row[c+1] || '').trim();
+            var pQty   = (row[c+2] || '').trim();
+            var pImg   = (row[c+3] || '').trim();
+            if (pName) {
+                products.push({
+                    name:  pName,
+                    price: parseFloat(pPrice) || 0,
+                    qty:   parseInt(pQty)     || 0,
+                    img:   pImg || null
+                });
+            }
+        }
+
+        shops.push({ name, phone, address, lat: lat||null, lng: lng||null, photo: photo||null, products });
+    }
+    return shops;
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 4: CLEAR ALL
+══════════════════════════════════════════════════════ */
+async function clearAll() {
+    if (!confirm('⚠️ ลบข้อมูลทั้งหมดใน shops และ products ใช่ไหม?')) return;
+    addLog('🗑️ กำลังลบข้อมูลเก่า...', 'warn');
+    try {
+        setProgress(10, 'ลบ products...');
+        await sbDelete('products', '?id=neq.00000000-0000-0000-0000-000000000000');
+        addLog('✅ ลบ products แล้ว', 'ok');
+
+        setProgress(60, 'ลบ shops...');
+        await sbDelete('shops', '?id=neq.00000000-0000-0000-0000-000000000000');
+        addLog('✅ ลบ shops แล้ว', 'ok');
+
+        setProgress(100, 'เสร็จแล้ว');
+        addLog('✅ ล้างข้อมูลเก่าเสร็จแล้ว', 'ok');
+    } catch(e) {
+        addLog('❌ ลบไม่สำเร็จ: ' + e.message, 'err');
+    }
+}
+
+/* ══════════════════════════════════════════════════════
+   STEP 4: IMPORT
+══════════════════════════════════════════════════════ */
+async function startImport() {
+    if (!confirm('⬆️ เริ่ม Import ข้อมูลจาก Google Sheet เข้า Supabase?\n\n⚠️ ข้อมูลเก่าจะถูกลบและแทนที่ด้วยข้อมูลใหม่')) return;
+
+    document.getElementById('importBtn').disabled = true;
+    document.getElementById('clearBtn').disabled  = true;
+    addLog('═══════════════════════════', 'info');
+    addLog('🚀 เริ่ม Import...', 'info');
+
+    var sheetId = document.getElementById('sheetId').value.trim();
+
+    try {
+        // 1. ดึงข้อมูลจาก Google Sheet
+        setProgress(5, 'กำลังดึงข้อมูลจาก Google Sheet...');
+        addLog('📥 กำลังดึงข้อมูลจาก Google Sheet...', 'info');
+        var csv   = await fetchSheetCSV(sheetId, 'shop');
+        var rows  = parseCSV(csv);
+        var shops = parseShopRows(rows);
+        addLog('✅ ดึงได้ ' + shops.length + ' ร้านค้า', 'ok');
+
+        // 2. ลบข้อมูลเก่า
+        setProgress(10, 'กำลังลบข้อมูลเก่า...');
+        addLog('🗑️ ลบ products เก่า...', 'warn');
+        await sbDelete('products', '?id=neq.00000000-0000-0000-0000-000000000000');
+        addLog('🗑️ ลบ shops เก่า...', 'warn');
+        await sbDelete('shops', '?id=neq.00000000-0000-0000-0000-000000000000');
+        addLog('✅ ลบข้อมูลเก่าเสร็จแล้ว', 'ok');
+
+        // 3. Import ทีละร้าน
+        var totalShops = shops.length;
+        var totalProds = 0;
+        var failedShops = 0;
+
+        for (var i = 0; i < totalShops; i++) {
+            var sh  = shops[i];
+            var pct = 15 + Math.round((i / totalShops) * 80);
+            setProgress(pct, 'กำลัง import ร้าน ' + (i+1) + '/' + totalShops + ': ' + sh.name);
+
+            try {
+                // Insert shop
+                var shopPayload = {
+                    name:    sh.name,
+                    phone:   sh.phone || null,
+                    address: sh.address || null,
+                    lat:     sh.lat ? parseFloat(sh.lat) : null,
+                    lng:     sh.lng ? parseFloat(sh.lng) : null,
+                    photo:   sh.photo || null
+                };
+                var created = await sbPost('shops', shopPayload);
+                var shopId  = Array.isArray(created) ? created[0].id : created.id;
+
+                // Insert products
+                if (sh.products.length > 0) {
+                    var prodPayloads = sh.products.map(function(p, idx) {
+                        return { shop_id: shopId, name: p.name, price: p.price, qty: p.qty, img: p.img, sort_order: idx };
+                    });
+                    await sbPost('products', prodPayloads);
+                    totalProds += sh.products.length;
+                }
+
+                addLog('✅ [' + (i+1) + '/' + totalShops + '] ' + sh.name +
+                       ' · ' + sh.phone + ' · สินค้า ' + sh.products.length + ' รายการ', 'ok');
+
+            } catch(shopErr) {
+                failedShops++;
+                addLog('❌ [' + (i+1) + '] ' + sh.name + ' — ' + shopErr.message, 'err');
+            }
+        }
+
+        // 4. สรุป
+        setProgress(100, '✅ Import เสร็จแล้ว!');
+        addLog('═══════════════════════════', 'info');
+        addLog('🎉 Import เสร็จแล้ว!', 'ok');
+        addLog('   ✅ ร้านค้าสำเร็จ: ' + (totalShops - failedShops) + ' ร้าน', 'ok');
+        addLog('   ✅ สินค้าทั้งหมด: ' + totalProds + ' รายการ', 'ok');
+        if (failedShops > 0) addLog('   ⚠️ ล้มเหลว: ' + failedShops + ' ร้าน', 'warn');
+        addLog('═══════════════════════════', 'info');
+
+        // reload preview
+        await loadPreview();
+
+    } catch(err) {
+        addLog('❌ Import ล้มเหลว: ' + err.message, 'err');
+        setProgress(0, 'เกิดข้อผิดพลาด');
+    }
+
+    document.getElementById('importBtn').disabled = false;
+    document.getElementById('clearBtn').disabled  = false;
+}
+
+function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Auto test on load
+window.addEventListener('load', function() {
+    addLog('🟡 กด "ทดสอบการเชื่อมต่อ" เพื่อเริ่มต้น', 'info');
+});
+</script>
+</body>
+</html>

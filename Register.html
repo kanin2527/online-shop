@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>ข้อมูลส่วนตัว</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary:#ff4757; --dark:#1a1a2e; --green:#22c55e; --bg:#f4f6f9; }
+        * { box-sizing:border-box; }
+        body { background:var(--bg); font-family:'Kanit',sans-serif; padding-bottom:120px; min-height:100vh; }
+
+        .reg-header {
+            background:linear-gradient(135deg,#22c55e 0%,#16a34a 100%);
+            color:white; padding:20px 20px 55px; border-radius:0 0 35px 35px;
+        }
+        .reg-header h5 { font-weight:700; font-size:1.2rem; margin:0; }
+        .back-btn {
+            background:rgba(255,255,255,0.2); border:none; border-radius:50%;
+            width:40px; height:40px; color:white; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center; cursor:pointer;
+        }
+
+        .step-bar { display:flex; gap:6px; padding:14px 16px 4px; }
+        .step { flex:1; height:5px; border-radius:4px; background:#e9ecef; transition:0.4s; }
+        .step.done   { background:#22c55e; }
+        .step.active { background:#86efac; }
+
+        .sc {
+            margin:0 16px 16px; background:white; border-radius:22px;
+            padding:20px; box-shadow:0 4px 15px rgba(0,0,0,0.07);
+        }
+        .sc.first { margin-top:-30px; position:relative; z-index:5; }
+        .sc-title {
+            font-weight:700; font-size:0.88rem; color:var(--dark);
+            display:flex; align-items:center; gap:8px; margin-bottom:14px;
+            padding-bottom:10px; border-bottom:1px solid #f0f0f5;
+        }
+        .sc-title i { color:var(--green); }
+
+        .flabel { font-size:0.8rem; color:#888; margin-bottom:5px; font-weight:500; }
+        .finput {
+            width:100%; border:2px solid #e9ecef; border-radius:14px;
+            padding:13px 16px; font-family:'Kanit',sans-serif; font-size:1rem;
+            outline:none; transition:0.2s; background:white;
+        }
+        .finput:focus { border-color:var(--green); }
+
+        .phone-box {
+            background:linear-gradient(135deg,#f0fff4,#dcfce7);
+            border:1.5px solid #86efac; border-radius:14px;
+            padding:13px 16px; display:flex; align-items:center; gap:10px;
+        }
+        .phone-box .num { font-weight:700; font-size:1.05rem; color:#16a34a; }
+        .phone-box .lbl { font-size:0.75rem; color:#65a36a; }
+
+        /* GPS */
+        .gps-btn {
+            width:100%; padding:15px;
+            background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+            color:white; border:none; border-radius:14px;
+            font-family:'Kanit',sans-serif; font-weight:700; font-size:1rem;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            gap:10px; transition:0.2s; margin-bottom:12px;
+            box-shadow:0 4px 15px rgba(59,130,246,0.35);
+        }
+        .gps-btn:active   { transform:scale(0.97); }
+        .gps-btn:disabled { background:#93c5fd; box-shadow:none; cursor:not-allowed; }
+        .gps-spin { width:20px; height:20px; border:3px solid rgba(255,255,255,0.4); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; display:none; }
+
+        .gps-status { border-radius:14px; padding:13px 16px; font-size:0.85rem; display:none; align-items:flex-start; gap:10px; animation:slideUp 0.3s ease; }
+        .gps-status.show { display:flex; }
+        .gps-status.info    { background:#eff6ff; color:#1d4ed8; border:1.5px solid #bfdbfe; }
+        .gps-status.success { background:#f0fff4; color:#16a34a; border:1.5px solid #86efac; }
+        .gps-status.err     { background:#fff5f5; color:#dc2626; border:1.5px solid #fca5a5; }
+
+        .coord-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .coord-box  { background:#f0fff4; border:1.5px solid #86efac; border-radius:12px; padding:10px 14px; }
+        .coord-lbl  { font-size:0.72rem; color:#65a36a; font-weight:600; margin-bottom:3px; }
+        .coord-val  { font-size:1rem; font-weight:700; color:#16a34a; font-family:monospace; }
+
+        #mapBox { width:100%; border-radius:14px; overflow:hidden; border:2px solid #86efac; margin-top:12px; display:none; background:#e8f4f8; position:relative; }
+        #mapBox img { width:100%; display:block; }
+        .map-label { position:absolute; bottom:8px; left:8px; background:rgba(0,0,0,0.65); color:white; border-radius:10px; padding:4px 10px; font-size:0.75rem; }
+
+        /* Photo */
+        .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+        .pbtn {
+            padding:14px 10px; border:none; border-radius:14px;
+            font-family:'Kanit',sans-serif; font-weight:600; font-size:0.88rem;
+            cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; transition:0.2s;
+        }
+        .pbtn.dark { background:linear-gradient(135deg,var(--dark),#2d2d5e); color:#f0e68c; box-shadow:0 3px 10px rgba(0,0,0,0.2); }
+        .pbtn.lite { background:#f8f9fa; color:#444; border:2px solid #dee2e6; }
+        .pbtn:active { transform:scale(0.95); }
+
+        .photo-wrap { position:relative; border-radius:16px; overflow:hidden; background:#f8f9fa; border:2px solid #e9ecef; display:none; }
+        .photo-wrap img { width:100%; height:220px; object-fit:cover; display:block; }
+        .upload-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.6); display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; gap:10px; font-size:0.9rem; }
+        .upload-overlay .spin { width:36px; height:36px; border:3px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; }
+        .photo-done { position:absolute; top:10px; right:10px; background:#22c55e; color:white; border-radius:20px; padding:5px 12px; font-size:0.78rem; font-weight:700; display:none; align-items:center; gap:5px; }
+        .photo-done.show { display:flex; }
+        .photo-retake { position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border:none; border-radius:20px; padding:6px 14px; font-family:'Kanit',sans-serif; font-size:0.78rem; cursor:pointer; }
+
+        /* Confirm Bar */
+        .confirm-bar { position:fixed; bottom:0; left:0; right:0; padding:12px 16px 26px; background:white; box-shadow:0 -4px 20px rgba(0,0,0,0.10); z-index:100; }
+        .save-btn {
+            width:100%; padding:16px; background:linear-gradient(135deg,#22c55e,#16a34a);
+            color:white; border:none; border-radius:18px;
+            font-family:'Kanit',sans-serif; font-size:1rem; font-weight:700;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            gap:10px; box-shadow:0 6px 20px rgba(34,197,94,0.35); transition:0.2s;
+        }
+        .save-btn:active   { transform:scale(0.98); }
+        .save-btn:disabled { background:#d1d5db; box-shadow:none; cursor:not-allowed; color:#9ca3af; }
+
+        /* Full Load */
+        .fullload { position:fixed; inset:0; background:rgba(255,255,255,0.92); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:999; backdrop-filter:blur(4px); }
+        .fullload.show { display:flex; }
+        .big-spin { width:52px; height:52px; border:5px solid #dcfce7; border-top-color:#22c55e; border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:14px; }
+
+        /* Toast */
+        .toast-wrap { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; }
+        .toast-msg { background:#1a1a2e; color:white; border-radius:14px; padding:11px 20px; font-size:0.88rem; font-weight:600; animation:slideDown 0.3s ease; white-space:nowrap; }
+        .toast-msg.green { background:#16a34a; }
+        .toast-msg.red   { background:#dc2626; }
+        @keyframes slideDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideUp   { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes spin { to { transform:rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<!-- Full Load -->
+<div class="fullload" id="fullLoad">
+    <div class="big-spin"></div>
+    <div style="font-weight:600;color:#16a34a;" id="fullLoadTxt">กำลังโหลดข้อมูล...</div>
+</div>
+
+<!-- Toast -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- Header -->
+<div class="reg-header">
+    <div class="d-flex align-items-center gap-3">
+        <button class="back-btn" onclick="goBack()"><i class="bi bi-arrow-left"></i></button>
+        <div>
+            <h5><i class="bi bi-person-circle me-2"></i><span id="pageTitle">ข้อมูลส่วนตัว</span></h5>
+            <div style="font-size:0.78rem;opacity:0.7;" id="pageSubtitle">กำลังโหลดข้อมูล...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Step Bar -->
+<div class="step-bar">
+    <div class="step done"   id="s1"></div>
+    <div class="step active" id="s2"></div>
+    <div class="step"        id="s3"></div>
+</div>
+
+<!-- ① ข้อมูลส่วนตัว -->
+<div class="sc first">
+    <div class="sc-title"><i class="bi bi-person-circle"></i> ข้อมูลส่วนตัว</div>
+
+    <div class="mb-3">
+        <div class="phone-box">
+            <i class="bi bi-telephone-fill" style="color:#16a34a;font-size:1.2rem;"></i>
+            <div>
+                <div class="lbl">เบอร์โทรศัพท์</div>
+                <div class="num" id="displayPhone">—</div>
+            </div>
+            <span class="badge ms-auto" id="memberBadge" style="font-size:0.75rem;padding:6px 10px;background:#6b7280;color:white;">กำลังตรวจสอบ...</span>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <div class="flabel">ชื่อ-นามสกุล <span class="text-danger">*</span></div>
+        <input type="text" id="inputName" class="finput" placeholder="ชื่อ นามสกุล" oninput="syncBtn()">
+    </div>
+
+    <div>
+        <div class="flabel">บ้านเลขที่ <span class="text-danger">*</span></div>
+        <input type="text" id="inputAddress" class="finput" placeholder="เช่น 99/1 หมู่ 5" oninput="syncBtn()">
+    </div>
+</div>
+
+<!-- ② พิกัด GPS -->
+<div class="sc">
+    <div class="sc-title"><i class="bi bi-geo-alt-fill"></i> พิกัดตำแหน่ง</div>
+
+    <button class="gps-btn" id="gpsBtn" onclick="startGPS()">
+        <div class="gps-spin" id="gpsSpin"></div>
+        <i class="bi bi-crosshair2" id="gpsIcon"></i>
+        <span id="gpsBtnLabel">กดเพื่อเก็บพิกัดจากมือถือ</span>
+    </button>
+
+    <div class="gps-status info" id="gpsInfo">
+        <i class="bi bi-info-circle-fill" style="font-size:1.1rem;flex-shrink:0;"></i>
+        <div>กำลังรอการอนุญาต GPS... กรุณากด <strong>อนุญาต</strong></div>
+    </div>
+
+    <div class="gps-status success" id="gpsOK">
+        <i class="bi bi-check-circle-fill" style="font-size:1.3rem;flex-shrink:0;color:#16a34a;"></i>
+        <div style="flex:1;">
+            <div style="font-weight:700;margin-bottom:8px;">บันทึกพิกัดสำเร็จ ✓</div>
+            <div class="coord-grid">
+                <div class="coord-box"><div class="coord-lbl"><i class="bi bi-arrow-up-down me-1"></i>LATITUDE</div><div class="coord-val" id="dispLat">—</div></div>
+                <div class="coord-box"><div class="coord-lbl"><i class="bi bi-arrow-left-right me-1"></i>LONGITUDE</div><div class="coord-val" id="dispLng">—</div></div>
+            </div>
+            <div style="font-size:0.75rem;color:#888;margin-top:8px;text-align:center;" id="dispAcc"></div>
+        </div>
+    </div>
+
+    <div class="gps-status err" id="gpsErr">
+        <i class="bi bi-exclamation-triangle-fill" style="font-size:1.1rem;flex-shrink:0;"></i>
+        <div>
+            <div style="font-weight:700;" id="gpsErrTitle">ไม่สามารถรับพิกัดได้</div>
+            <div style="font-size:0.8rem;margin-top:3px;" id="gpsErrDetail"></div>
+        </div>
+    </div>
+
+    <div id="mapBox"><img id="mapImg" src="" alt="แผนที่"><div class="map-label" id="mapLabel"></div></div>
+    <input type="hidden" id="hidLat"><input type="hidden" id="hidLng">
+</div>
+
+<!-- ③ รูปถ่ายหน้าบ้าน -->
+<div class="sc">
+    <div class="sc-title"><i class="bi bi-house-fill"></i> รูปถ่ายหน้าบ้าน</div>
+    <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">ถ่ายรูปหน้าบ้านเพื่อให้ทีมงานส่งสินค้าได้ถูกต้อง</p>
+
+    <div class="photo-grid">
+        <button class="pbtn dark" onclick="document.getElementById('camIn').click()"><i class="bi bi-camera-fill"></i> ถ่ายรูป</button>
+        <button class="pbtn lite" onclick="document.getElementById('galIn').click()"><i class="bi bi-image-fill"></i> เลือกรูป</button>
+    </div>
+
+    <input type="file" id="camIn" accept="image/*" capture="environment" style="display:none" onchange="onPhotoSelected(this)">
+    <input type="file" id="galIn" accept="image/*" style="display:none" onchange="onPhotoSelected(this)">
+
+    <div class="photo-wrap" id="photoWrap">
+        <img id="photoPreview" src="" alt="preview">
+        <div class="upload-overlay" id="uploadOverlay"><div class="spin"></div><span>กำลังอัปโหลด...</span></div>
+        <div class="photo-done" id="photoDone"><i class="bi bi-check-circle-fill"></i> อัปโหลดแล้ว</div>
+        <button class="photo-retake" onclick="document.getElementById('camIn').click()"><i class="bi bi-arrow-repeat me-1"></i>ถ่ายใหม่</button>
+    </div>
+    <input type="hidden" id="photoUrl">
+</div>
+
+<!-- Confirm Bar -->
+<div class="confirm-bar">
+    <button class="save-btn" id="saveBtn" onclick="doSave()" disabled>
+        <i class="bi bi-check-circle-fill"></i>
+        <span id="saveTxt">กรอกชื่อและบ้านเลขที่ก่อน</span>
+    </button>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   SUPABASE CONFIG
+══════════════════════════════════════════════════════ */
+var SB_URL = 'https://tkjvhcqkfddcbjcdpfye.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRranZoY3FrZmRkY2JqY2RwZnllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMjgzMTcsImV4cCI6MjA4ODYwNDMxN30.JgYngweL4ypH4rIGzuNITT8ibA2B_xW3r9LL3_hqSG4';
+
+var CLOUD  = 'dnhnw0xfe';
+var PRESET = 'ml_default';
+
+async function sbGet(table, q) {
+    var res = await fetch(SB_URL+'/rest/v1/'+table+(q||''), {
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+async function sbPost(table, body) {
+    var res = await fetch(SB_URL+'/rest/v1/'+table, {
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
+        body:JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+async function sbPatch(table, q, body) {
+    var res = await fetch(SB_URL+'/rest/v1/'+table+(q||''), {
+        method:'PATCH',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error(await res.text());
+    return true;
+}
+
+/* ══════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════ */
+var savedLat   = '';
+var savedLng   = '';
+var photoUrl   = '';
+var gpsWatchId = null;
+var isEditMode = false;
+var fromCart   = false;
+var custPhone  = '';
+var custId     = null;
+
+/* ══════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════ */
+window.addEventListener('load', function() {
+    // อ่านเบอร์จาก localStorage
+    try {
+        var raw = localStorage.getItem('memberData');
+        if (raw) { var md = JSON.parse(raw); custPhone = md.phone || ''; }
+        if (!custPhone) custPhone = localStorage.getItem('savedPhone') || '';
+        fromCart = localStorage.getItem('fromCart') === '1';
+    } catch(e){}
+
+    if (custPhone) {
+        document.getElementById('displayPhone').textContent = custPhone;
+        loadCustomer(custPhone);
+    } else {
+        setNewMode();
+        syncBtn();
+    }
+});
+
+/* ══════════════════════════════════════════════════════
+   โหลดข้อมูลจาก Supabase
+══════════════════════════════════════════════════════ */
+async function loadCustomer(phone) {
+    document.getElementById('fullLoad').classList.add('show');
+    document.getElementById('fullLoadTxt').textContent = 'กำลังดึงข้อมูลสมาชิก...';
+    try {
+        var rows = await sbGet('customers', '?phone=eq.'+encodeURIComponent(phone)+'&select=*');
+        document.getElementById('fullLoad').classList.remove('show');
+        if (rows && rows.length > 0) {
+            isEditMode = true;
+            custId = rows[0].id;
+            fillForm(rows[0]);
+            setEditMode(rows[0].name);
+        } else {
+            isEditMode = false;
+            setNewMode();
+        }
+    } catch(e) {
+        document.getElementById('fullLoad').classList.remove('show');
+        console.error(e);
+        setNewMode();
+        toast('ดึงข้อมูลไม่ได้: '+e.message, 'red');
+    }
+    syncBtn();
+}
+
+function fillForm(d) {
+    if (d.name)    document.getElementById('inputName').value    = d.name;
+    if (d.address) document.getElementById('inputAddress').value = d.address;
+    if (d.lat && d.lng) {
+        savedLat = String(d.lat);
+        savedLng = String(d.lng);
+        document.getElementById('hidLat').value = savedLat;
+        document.getElementById('hidLng').value = savedLng;
+        document.getElementById('dispLat').textContent = parseFloat(savedLat).toFixed(6);
+        document.getElementById('dispLng').textContent = parseFloat(savedLng).toFixed(6);
+        document.getElementById('dispAcc').textContent = 'พิกัดที่บันทึกไว้';
+        setGPSState('ok');
+        showMap(savedLat, savedLng, 50);
+    }
+    if (d.photo) {
+        photoUrl = d.photo;
+        document.getElementById('photoUrl').value = d.photo;
+        document.getElementById('photoPreview').src = d.photo;
+        document.getElementById('photoWrap').style.display = 'block';
+        document.getElementById('uploadOverlay').style.display = 'none';
+        document.getElementById('photoDone').classList.add('show');
+    }
+}
+
+function setEditMode(name) {
+    document.getElementById('pageTitle').textContent    = 'แก้ไขข้อมูลส่วนตัว';
+    document.getElementById('pageSubtitle').textContent = 'ข้อมูลของคุณในระบบ';
+    var b = document.getElementById('memberBadge');
+    b.className = 'badge ms-auto bg-success'; b.textContent = '✓ สมาชิก';
+}
+function setNewMode() {
+    document.getElementById('pageTitle').textContent    = 'สมัครสมาชิก';
+    document.getElementById('pageSubtitle').textContent = 'กรอกข้อมูลเพื่อยืนยันการซื้อ';
+    var b = document.getElementById('memberBadge');
+    b.style.background='#f59e0b'; b.style.color='white'; b.textContent='⚡ ใหม่';
+}
+
+/* ══════════════════════════════════════════════════════
+   SYNC BUTTON
+══════════════════════════════════════════════════════ */
+function syncBtn() {
+    var name    = document.getElementById('inputName').value.trim();
+    var address = document.getElementById('inputAddress').value.trim();
+    var ok      = name && address;
+    var btn     = document.getElementById('saveBtn');
+    var txt     = document.getElementById('saveTxt');
+    btn.disabled = !ok;
+    if (!ok)           txt.textContent = 'กรอกชื่อและบ้านเลขที่ก่อน';
+    else if (isEditMode) txt.textContent = 'บันทึกการแก้ไข ✓';
+    else if (!savedLat)  txt.textContent = 'บันทึก (แนะนำ: เพิ่มพิกัด GPS)';
+    else if (!photoUrl)  txt.textContent = 'บันทึก (แนะนำ: เพิ่มรูปหน้าบ้าน)';
+    else                 txt.textContent = 'บันทึกและยืนยันการซื้อ ✓';
+
+    document.getElementById('s2').className = 'step '+(ok?'done':'active');
+    document.getElementById('s3').className = 'step '+(savedLat?'done':(ok?'active':''));
+}
+
+/* ══════════════════════════════════════════════════════
+   GPS
+══════════════════════════════════════════════════════ */
+function startGPS() {
+    if (!('geolocation' in navigator)) {
+        setGPSState('err','เบราว์เซอร์ไม่รองรับ GPS','กรุณาใช้ Chrome บนมือถือ'); return;
+    }
+    setGPSState('info');
+    document.getElementById('gpsSpin').style.display = 'block';
+    document.getElementById('gpsIcon').style.display = 'none';
+    document.getElementById('gpsBtnLabel').textContent = 'กำลังหาพิกัด...';
+    document.getElementById('gpsBtn').disabled = true;
+
+    if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+    var gotFirst = false;
+    gpsWatchId = navigator.geolocation.watchPosition(
+        function(pos) {
+            if (gotFirst) return;
+            var acc = pos.coords.accuracy;
+            if (acc > 100) {
+                document.getElementById('gpsInfo').querySelector('div').textContent = 'กำลังปรับความแม่นยำ... (±'+Math.round(acc)+'m)';
+                return;
+            }
+            gotFirst = true;
+            navigator.geolocation.clearWatch(gpsWatchId);
+            savedLat = pos.coords.latitude.toFixed(7);
+            savedLng = pos.coords.longitude.toFixed(7);
+            document.getElementById('hidLat').value = savedLat;
+            document.getElementById('hidLng').value = savedLng;
+            document.getElementById('dispLat').textContent = savedLat;
+            document.getElementById('dispLng').textContent = savedLng;
+            document.getElementById('dispAcc').textContent = 'ความแม่นยำ ±'+Math.round(acc)+' เมตร';
+            setGPSState('ok');
+            document.getElementById('gpsSpin').style.display = 'none';
+            document.getElementById('gpsIcon').style.display = 'block';
+            document.getElementById('gpsBtnLabel').textContent = 'เก็บพิกัดใหม่';
+            document.getElementById('gpsBtn').disabled = false;
+            showMap(savedLat, savedLng, acc);
+            syncBtn();
+        },
+        function(err) {
+            navigator.geolocation.clearWatch(gpsWatchId);
+            document.getElementById('gpsSpin').style.display = 'none';
+            document.getElementById('gpsIcon').style.display = 'block';
+            document.getElementById('gpsBtnLabel').textContent = 'ลองใหม่อีกครั้ง';
+            document.getElementById('gpsBtn').disabled = false;
+            var t='ไม่สามารถรับพิกัดได้', d='';
+            if (err.code===1) { t='⚠️ ยังไม่ได้อนุญาต GPS'; d='กรุณากด "อนุญาต" เมื่อเบราว์เซอร์ถาม'; }
+            else if (err.code===2) { t='ไม่พบสัญญาณ GPS'; d='ลองออกไปบริเวณโล่งๆ'; }
+            else if (err.code===3) { t='GPS ใช้เวลานานเกินไป'; d='กรุณาลองใหม่'; }
+            setGPSState('err', t, d);
+        },
+        { enableHighAccuracy:true, timeout:20000, maximumAge:0 }
+    );
+}
+
+function setGPSState(state, title, detail) {
+    ['gpsInfo','gpsOK','gpsErr'].forEach(function(id){ document.getElementById(id).classList.remove('show'); });
+    if (state==='info') document.getElementById('gpsInfo').classList.add('show');
+    if (state==='ok')   document.getElementById('gpsOK').classList.add('show');
+    if (state==='err') {
+        document.getElementById('gpsErr').classList.add('show');
+        if (title)  document.getElementById('gpsErrTitle').textContent  = title;
+        if (detail) document.getElementById('gpsErrDetail').textContent = detail;
+    }
+}
+
+function showMap(lat, lng, acc) {
+    var box  = document.getElementById('mapBox');
+    var img  = document.getElementById('mapImg');
+    var zoom = acc < 50 ? 17 : (acc < 200 ? 16 : 15);
+    var url  = 'https://staticmap.openstreetmap.de/staticmap.php?center='+lat+','+lng+'&zoom='+zoom+'&size=600x300&maptype=osm&markers='+lat+','+lng+',red';
+    img.src  = url;
+    img.onerror = function() {
+        box.innerHTML = '<div style="padding:20px;text-align:center;background:#f0fff4;border-radius:14px;"><i class="bi bi-geo-alt-fill" style="font-size:2rem;color:#22c55e;"></i><div style="margin-top:8px;font-weight:700;color:#16a34a;">พิกัดบันทึกแล้ว</div><div style="font-size:0.85rem;color:#666;margin-top:4px;">Lat: '+lat+'<br>Lng: '+lng+'</div></div>';
+        box.style.border='none';
+    };
+    document.getElementById('mapLabel').textContent = 'Lat:'+lat+' Lng:'+lng;
+    box.style.display = 'block';
+}
+
+/* ══════════════════════════════════════════════════════
+   PHOTO
+══════════════════════════════════════════════════════ */
+function onPhotoSelected(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    document.getElementById('photoPreview').src = URL.createObjectURL(file);
+    document.getElementById('photoWrap').style.display = 'block';
+    document.getElementById('uploadOverlay').style.display = 'flex';
+    document.getElementById('photoDone').classList.remove('show');
+    photoUrl = '';
+    input.value = '';
+
+    uploadToCloudinary(file, function(url) {
+        photoUrl = url;
+        document.getElementById('photoUrl').value = url;
+        document.getElementById('photoPreview').src = url;
+        document.getElementById('uploadOverlay').style.display = 'none';
+        document.getElementById('photoDone').classList.add('show');
+        syncBtn();
+    }, function(err) {
+        document.getElementById('uploadOverlay').style.display = 'none';
+        document.getElementById('photoWrap').style.display = 'none';
+        toast('อัปโหลดรูปไม่สำเร็จ: '+err, 'red');
+    });
+}
+
+function uploadToCloudinary(file, onOk, onErr) {
+    compressImage(file, function(blob) {
+        var fd = new FormData();
+        fd.append('file', blob, 'house.jpg');
+        fd.append('upload_preset', PRESET);
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST','https://api.cloudinary.com/v1_1/'+CLOUD+'/image/upload',true);
+        xhr.onload = function() {
+            if (xhr.status===200) {
+                try { var d=JSON.parse(xhr.responseText); var u=d.secure_url||d.url||''; if(u) onOk(u); else onErr('ไม่พบ URL'); }
+                catch(e) { onErr('parse: '+e.message); }
+            } else { onErr('HTTP '+xhr.status); }
+        };
+        xhr.onerror = function() { onErr('เชื่อมต่อ Cloudinary ไม่ได้'); };
+        xhr.send(fd);
+    }, onErr);
+}
+
+function compressImage(file, onBlob, onErr) {
+    var r = new FileReader();
+    r.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var MAX=1200, w=img.width, h=img.height;
+            if(w>MAX||h>MAX){if(w>=h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
+            var c=document.createElement('canvas'); c.width=w; c.height=h;
+            c.getContext('2d').drawImage(img,0,0,w,h);
+            c.toBlob(function(b){if(b) onBlob(b); else onErr('compress fail');},'image/jpeg',0.85);
+        };
+        img.onerror=function(){onErr('load fail');};
+        img.src=e.target.result;
+    };
+    r.onerror=function(){onErr('read fail');};
+    r.readAsDataURL(file);
+}
+
+/* ══════════════════════════════════════════════════════
+   SAVE
+══════════════════════════════════════════════════════ */
+async function doSave() {
+    var name    = document.getElementById('inputName').value.trim();
+    var address = document.getElementById('inputAddress').value.trim();
+    if (!name||!address) { toast('กรุณากรอกชื่อและบ้านเลขที่','red'); return; }
+
+    // แจ้งเตือน (ไม่บล็อก)
+    if (!savedLat && !photoUrl) {
+        if (!confirm('ยังไม่มีพิกัด GPS และรูปหน้าบ้าน\nต้องการบันทึกต่อหรือไม่?')) return;
+    } else if (!savedLat) {
+        if (!confirm('ยังไม่มีพิกัด GPS\nต้องการบันทึกต่อหรือไม่?')) return;
+    } else if (!photoUrl) {
+        if (!confirm('ยังไม่มีรูปหน้าบ้าน\nต้องการบันทึกต่อหรือไม่?')) return;
+    }
+
+    document.getElementById('fullLoad').classList.add('show');
+    document.getElementById('fullLoadTxt').textContent = 'กำลังบันทึกข้อมูล...';
+    document.getElementById('saveBtn').disabled = true;
+
+    var payload = {
+        phone:   custPhone || null,
+        name:    name,
+        address: address,
+        lat:     savedLat ? parseFloat(savedLat) : null,
+        lng:     savedLng ? parseFloat(savedLng) : null,
+        photo:   photoUrl || null
+    };
+
+    try {
+        if (isEditMode && custId) {
+            // อัปเดต
+            await sbPatch('customers', '?id=eq.'+custId, payload);
+        } else {
+            // สร้างใหม่ (ถ้ามีเบอร์เดิมอยู่แล้ว upsert)
+            if (custPhone) {
+                payload.phone = custPhone;
+                // ลองหาก่อน
+                var exist = await sbGet('customers','?phone=eq.'+encodeURIComponent(custPhone)+'&select=id');
+                if (exist && exist.length>0) {
+                    await sbPatch('customers','?phone=eq.'+encodeURIComponent(custPhone), payload);
+                    custId = exist[0].id;
+                } else {
+                    var created = await sbPost('customers', payload);
+                    custId = Array.isArray(created) ? created[0].id : created.id;
+                }
+            } else {
+                var created = await sbPost('customers', payload);
+                custId = Array.isArray(created) ? created[0].id : created.id;
+            }
+        }
+
+        // อัปเดต localStorage
+        try {
+            var md = { phone: custPhone, name: name, isNew: false };
+            localStorage.setItem('memberData', JSON.stringify(md));
+        } catch(e){}
+
+        document.getElementById('fullLoad').classList.remove('show');
+        document.getElementById('saveBtn').disabled = false;
+
+        var msg = isEditMode ? '✅ อัปเดตข้อมูลสำเร็จ!' : '✅ สมัครสมาชิกสำเร็จ!';
+        isEditMode = true;
+
+        if (fromCart) {
+            alert(msg+'\nกรุณายืนยันการสั่งซื้ออีกครั้ง');
+            try { localStorage.removeItem('fromCart'); } catch(e){}
+            window.location.href = 'Cart.html';
+        } else {
+            alert(msg);
+            window.location.href = 'Index.html';
+        }
+
+    } catch(err) {
+        document.getElementById('fullLoad').classList.remove('show');
+        document.getElementById('saveBtn').disabled = false;
+        console.error(err);
+        toast('บันทึกไม่สำเร็จ: '+(err.message||err), 'red');
+    }
+}
+
+/* ══════════════════════════════════════════════════════
+   NAVIGATION & HELPERS
+══════════════════════════════════════════════════════ */
+function goBack() {
+    try { localStorage.removeItem('fromCart'); } catch(e){}
+    if (fromCart) window.location.href = 'Cart.html';
+    else window.location.href = 'Index.html';
+}
+
+function toast(msg, type) {
+    var wrap = document.getElementById('toastWrap');
+    var el   = document.createElement('div');
+    el.className = 'toast-msg ' + (type||'');
+    el.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
+}
+</script>
+</body>
+</html>
